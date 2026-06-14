@@ -1,0 +1,28 @@
+export async function saveScore(result) {
+  const response = await fetch('/api/scores', {
+    body: JSON.stringify({
+      accuracy: result.accuracy,
+      difficulty: result.difficulty,
+      maxCombo: result.maxCombo,
+      rank: result.rank,
+      score: result.score,
+      songId: result.songId,
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    method: 'POST',
+  })
+
+  if (!response.ok) {
+    const details = await response.json().catch(() => ({}))
+    throw new Error(details.message || 'Score could not be saved')
+  }
+
+  return response.json()
+}
+
+export function queuePendingScore(result) {
+  const existing = JSON.parse(localStorage.getItem('pendingRhythmScores') || '[]')
+  localStorage.setItem('pendingRhythmScores', JSON.stringify([result, ...existing].slice(0, 20)))
+}

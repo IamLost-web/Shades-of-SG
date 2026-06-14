@@ -26,6 +26,17 @@ const GameScore = sequelize.define('GameScore', {
         type: DataTypes.FLOAT,
         allowNull: true,
     },
+    maxCombo: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        field: 'max_combo',
+    },
+    rank: {
+        type: DataTypes.ENUM('S', 'A', 'B', 'C'),
+        allowNull: false,
+        defaultValue: 'C',
+    },
     difficulty: {
         type: DataTypes.ENUM('EASY', 'MEDIUM', 'HARD'),
         allowNull: false,

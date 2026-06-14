@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const errorHandler = require('./middleware/errorHandler');
 const sequelize = require('./config/database');
+const scoresRouter = require('./routes/scores');
+const songsRouter = require('./routes/songs');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -20,6 +22,9 @@ app.get('/api/health', (req, res) => {
         service: 'shades-of-sg-api',
     });
 });
+
+app.use('/api/songs', songsRouter);
+app.use('/api/scores', scoresRouter);
 
 app.use(errorHandler);
 

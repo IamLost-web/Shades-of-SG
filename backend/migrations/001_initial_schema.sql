@@ -73,6 +73,8 @@ create table if not exists game_scores (
     song_id uuid not null references songs(id) on delete cascade,
     score integer not null default 0,
     accuracy double precision,
+    max_combo integer not null default 0,
+    rank varchar(8) not null default 'C' check (rank in ('S', 'A', 'B', 'C')),
     difficulty varchar(32) not null default 'EASY' check (difficulty in ('EASY', 'MEDIUM', 'HARD')),
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()

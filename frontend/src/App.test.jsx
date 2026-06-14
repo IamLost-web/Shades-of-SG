@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest'
 import App from './App'
 
 describe('App', () => {
-  it('renders the app shell', () => {
+  it('renders the rhythm game landing page', () => {
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: /shades of sg/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /rhythm game/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /play demo song/i })).toBeInTheDocument()
   })
 })

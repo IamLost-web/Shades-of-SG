@@ -71,7 +71,38 @@ async function deleteImage(publicId) {
   }
 }
 
+const uploadAudioStream = (fileData) => {
+  // Inline requires to guarantee zero conflicts with top-level imports
+  const cloudinary = require('../config/cloudinary');
+  const { Readable } = require('stream');
+
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: 'video', // Mandated by Cloudinary for audio
+        folder: 'shades-of-sg/audio'
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve({
+          audioUrl: result.secure_url,
+          duration: Math.round(result.duration || 0)
+        });
+      }
+    );
+
+    if (Buffer.isBuffer(fileData)) {
+      Readable.from(fileData).pipe(uploadStream);
+    } else if (fileData && typeof fileData.pipe === 'function') {
+      fileData.pipe(uploadStream);
+    } else {
+      reject(new Error('Invalid file data provided.'));
+    }
+  });
+};
+
 module.exports = {
   uploadImage,
   deleteImage,
+  uploadAudioStream,
 };

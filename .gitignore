@@ -1,17 +1,10 @@
-# OS & IDEs
-.idea/
-.vscode/
-.junie/
-.DS_Store
-*.swp
-*.swo
-
-# Dependencies & Secrets (This automatically covers the frontend & backend!)
+# Root dependencies
 node_modules/
+
+# Safety catch (prevents accidental root env leaks)
 .env
 .env.*
-!.env.example
 
-# Logs
-*.log
-npm-debug.log*
+# OS generated files
+.DS_Store
+Thumbs.db

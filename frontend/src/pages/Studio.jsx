@@ -1,25 +1,151 @@
-import PageHeader from '../components/PageHeader'
-import SectionCard from '../components/SectionCard'
+import { useEffect, useState } from 'react'
+import LivePreviewCard from '../components/studio/LivePreviewCard'
+import MetadataStepper from '../components/studio/MetadataStepper'
+import SongInformationCard from '../components/studio/SongInformationCard'
+import StudioFooter from '../components/studio/StudioFooter'
+import StudioHeader from '../components/studio/StudioHeader'
 
-/*
-TODO - Ferlyn
+const initialFormData = {
+  artist: '',
+  description: '',
+  otherLanguage: '',
+  theme: '',
+  title: '',
+  youtubeLink: '',
+}
 
-Implement song metadata form.
-Implement preview area.
-Implement publish controls.
-*/
+const initialLanguages = ['English', 'Chinese']
+const initialMoods = ['joyful', 'nostalgic', 'hopeful']
+
 export default function Studio() {
+  const [formData, setFormData] = useState(initialFormData)
+  const [selectedLanguages, setSelectedLanguages] = useState(initialLanguages)
+  const [selectedMoods, setSelectedMoods] = useState(initialMoods)
+  const [audioFileName, setAudioFileName] = useState('')
+  const [audioDuration, setAudioDuration] = useState('')
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState('')
+
+  useEffect(() => {
+    return () => {
+      if (audioPreviewUrl) {
+        URL.revokeObjectURL(audioPreviewUrl)
+      }
+    }
+  }, [audioPreviewUrl])
+
+  function updateField(field, value) {
+    setFormData((current) => ({ ...current, [field]: value }))
+  }
+
+  function toggleLanguage(language) {
+    setSelectedLanguages((current) => {
+      if (current.includes(language)) {
+        return current.filter((item) => item !== language)
+      }
+
+      return [...current, language]
+    })
+  }
+
+  function toggleMood(tag) {
+    setSelectedMoods((current) => {
+      if (current.includes(tag)) {
+        return current.filter((item) => item !== tag)
+      }
+
+      if (current.length >= 5) {
+        return current
+      }
+
+      return [...current, tag]
+    })
+  }
+
+  function handleAudioFileChange(event) {
+    const file = event.target.files?.[0]
+    setAudioFileName(file ? file.name : '')
+
+    if (!file) {
+      setAudioDuration('')
+      setAudioPreviewUrl('')
+      return
+    }
+
+    const audio = document.createElement('audio')
+    const objectUrl = URL.createObjectURL(file)
+    setAudioPreviewUrl(objectUrl)
+
+    audio.preload = 'metadata'
+    audio.src = objectUrl
+    audio.onloadedmetadata = () => {
+      if (Number.isFinite(audio.duration)) {
+        const minutes = Math.floor(audio.duration / 60)
+        const seconds = Math.floor(audio.duration % 60)
+        setAudioDuration(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`)
+      }
+    }
+    audio.onerror = () => {
+      setAudioDuration('')
+    }
+  }
+
+  function clearAudioFile() {
+    setAudioFileName('')
+    setAudioDuration('')
+    setAudioPreviewUrl('')
+  }
+
+  function updateOtherLanguage(value) {
+    updateField('otherLanguage', value)
+
+    if (value.trim() && !selectedLanguages.includes('Others')) {
+      setSelectedLanguages((current) => [...current, 'Others'])
+    }
+  }
+
+  const previewLanguages = selectedLanguages
+    .filter((language) => language !== 'Others')
+    .concat(selectedLanguages.includes('Others') && formData.otherLanguage.trim() ? [formData.otherLanguage.trim()] : [])
+
   return (
-    <div className="page-stack">
-      <PageHeader description="Creator workspace for drafting song metadata, previews, and publication state." eyebrow="Creator Studio" title="Studio" />
-      <section className="studio-grid">
-        <SectionCard title="Song Metadata Form">
-          <label className="field-stack"><span>Title</span><input placeholder="Song title" /></label>
-          <label className="field-stack"><span>Cultural Theme</span><input placeholder="Theme" /></label>
-        </SectionCard>
-        <SectionCard title="Preview Area"><div className="video-frame">Preview</div></SectionCard>
-        <SectionCard title="Publish Controls"><div className="button-row"><button type="button">Save Draft</button><button type="button">Publish</button></div></SectionCard>
+    <div className="studio-page">
+      <StudioHeader />
+
+      <section className="studio-main-grid">
+        <div className="studio-form-column">
+          <MetadataStepper activeStep={1} />
+
+          <SongInformationCard
+            audioFileName={audioFileName}
+            descriptionLength={formData.description.length}
+            formData={formData}
+            onAudioFileChange={handleAudioFileChange}
+            onAudioFileClear={clearAudioFile}
+            onFieldChange={updateField}
+            onLanguageToggle={toggleLanguage}
+            onMoodToggle={toggleMood}
+            onOtherLanguageChange={updateOtherLanguage}
+            onYouTubeLinkChange={(value) => updateField('youtubeLink', value)}
+            selectedLanguages={selectedLanguages}
+            selectedMoods={selectedMoods}
+          />
+        </div>
+
+        <LivePreviewCard
+          artist={formData.artist}
+          audioSrc={audioPreviewUrl}
+          description={formData.description}
+          duration={audioDuration}
+          languages={previewLanguages}
+          moods={selectedMoods}
+          theme={formData.theme}
+          title={formData.title}
+          youtubeLink={formData.youtubeLink}
+        />
       </section>
+
+      <StudioFooter />
     </div>
   )
 }
+

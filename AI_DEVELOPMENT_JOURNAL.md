@@ -861,3 +861,283 @@ For this project, a rhythm game feature should not be treated as a separate mini
 Visual polish matters most when it improves readability and flow. The most important changes were not fancy effects, but clear layering, centered gameplay, visible notes, intentional start state, pause support, and a meaningful Results page that leads to Reflection Wall work.
 
 Human review was essential because the AI could implement mechanics, but Ferlyn's references and product judgement determined whether the feature actually matched the intended experience.
+
+---
+
+## 2026-07-01
+
+### Feature
+
+Studio Page Rebuild
+
+### AI Tool Used
+
+Codex
+
+### Objective
+
+Rebuild only the creator Studio page from scratch so it matches the provided Figma reference, stays responsive across desktop and tablet/mobile widths, and avoids the instability of the previous implementation.
+
+### Prompt Summary
+
+Ferlyn requested a full rebuild of the Studio page only, with reusable components, a collapsible creator sidebar, a responsive metadata form, a live preview panel, footer actions, local React state only, no API calls, and no changes to unrelated pages, routing, authentication, or backend logic.
+
+### AI Output Summary
+
+Codex rebuilt the Studio route into a dedicated component set and route-owned shell.
+
+Components created:
+
+* `frontend/src/components/studio/CreatorSidebar.jsx`
+* `frontend/src/components/studio/StudioHeader.jsx`
+* `frontend/src/components/studio/MetadataStepper.jsx`
+* `frontend/src/components/studio/SongInformationCard.jsx`
+* `frontend/src/components/studio/LanguageSelector.jsx`
+* `frontend/src/components/studio/MoodTagSelector.jsx`
+* `frontend/src/components/studio/SongMediaUpload.jsx`
+* `frontend/src/components/studio/LivePreviewCard.jsx`
+* `frontend/src/components/studio/StudioFooter.jsx`
+
+Files created or updated:
+
+* `frontend/src/pages/Studio.jsx`
+* `frontend/src/layouts/CreatorLayout.jsx`
+* `frontend/src/App.css`
+* `AI_DEVELOPMENT_JOURNAL.md`
+
+Design decisions:
+
+* Kept the implementation within the existing dark creator palette and card language already used by the app.
+* Made the Studio route own its shell so the page can use the requested sidebar, header, form, preview, and footer layout without affecting other creator pages.
+* Used local component state only for form fields, selected languages, mood tags, and sidebar collapse state.
+* Persisted the sidebar collapse state in `localStorage`.
+* Used a desktop-first responsive grid with a two-column main layout on larger widths and a single-column stack below tablet widths.
+* Built the live preview with mock data only and no backend integration.
+
+### Human Review
+
+Fully accepted.
+
+### Human Modifications
+
+No user edits were required after implementation.
+
+### Final Outcome
+
+The Studio page now renders as a dedicated responsive creator workspace with reusable components, a collapsible sidebar, a metadata form, a mock live preview, and footer actions that match the provided visual reference much more closely.
+
+### Verification
+
+The Studio rebuild was checked with frontend commands:
+
+* `npm run lint`
+* `npm run build`
+
+### Remaining Work
+
+* Replace mock content with real song data when backend integration is ready.
+* Add actual shadcn/ui or Tailwind wiring only if the project stack is later expanded to support it.
+* Connect the save, preview, and generate actions to real Studio workflows when those APIs exist.
+
+### Follow-up Adjustment
+
+The Studio page was later adjusted to remove the separate top bar entirely and move the creator branding, logout control, and navigation into the sidebar so the requested layout matched the current creator top navigation more closely.
+
+### Sidebar Restyle Update
+
+The shared creator sidebar was then rebuilt to match the provided reference more closely across all creator routes, including the compact icon rail, stacked branding, creator portal label, highlighted active item, notification badge, decorative lower artwork, and footer support/logout actions.
+
+---
+
+## 2026-07-02
+
+### Feature
+
+Creator Studio Song Information Form Refinement
+
+### AI Tool Used
+
+Codex
+
+### Objective
+
+Refine the Creator Studio page so the Song Information card and surrounding Studio layout more closely match Ferlyn's provided Figma screenshots.
+
+### Prompt Summary
+
+Ferlyn requested several visual corrections to the Creator Studio page, especially the Song Information container. The requested layout was:
+
+* A top section with left-side song metadata fields and right-side selectors.
+* A Figma-matched Song Information card where the left column contains Title, Artist, Theme, and Description.
+* A right column containing Languages Used, Mood Tags, and Song Media.
+* Language options styled as selectable checkbox pills.
+* Mood tags styled as selected pills with a visible count and an Add mood tag row.
+* Description character counting and vulgarity validation.
+* Song Media kept at the bottom with upload audio and YouTube link options.
+
+### AI Output Summary
+
+Codex iteratively adjusted the existing Studio implementation rather than rebuilding the page from scratch.
+
+Files updated:
+
+* `frontend/src/pages/Studio.jsx`
+* `frontend/src/components/studio/SongInformationCard.jsx`
+* `frontend/src/components/studio/LanguageSelector.jsx`
+* `frontend/src/components/studio/MoodTagSelector.jsx`
+* `frontend/src/components/studio/SongMediaUpload.jsx`
+* `frontend/src/App.css`
+* `AI_DEVELOPMENT_JOURNAL.md`
+
+Implemented refinements:
+
+* Reworked the Studio header area to include breadcrumb, title, subtitle, creator controls, and action buttons.
+* Moved the stepper into the left form column above the Song Information card.
+* Reworked the Song Information card into a two-column layout matching the screenshot:
+  * Left column: Title, Artist, Theme, Description.
+  * Right column: Languages Used, Mood Tags, Song Media.
+* Added title and artist character counters inside the input rows.
+* Set description max length to 300 characters to match the latest screenshot.
+* Added local vulgarity validation feedback for the description field.
+* Changed Language Selector to use two-column checkbox pills and an Others row with a Specify language input.
+* Changed Mood Tag Selector to show selected mood pills with remove indicators, a count, and a dashed Add mood tag row.
+* Changed Song Media Upload to use a dashed upload box, divider, and YouTube link input.
+* Tuned card spacing, borders, radii, input sizing, pill styling, media upload styling, and footer/sidebar offsets in `App.css`.
+
+### Human Review
+
+In progress. Ferlyn is comparing the updated Studio card against the Figma screenshot and giving visual correction prompts.
+
+### Human Modifications
+
+No direct human code modifications were made during this update.
+
+### Final Outcome
+
+The Creator Studio Song Information card is now much closer to the supplied Figma reference, with the correct two-column field grouping, compact dark input styling, selected language and mood pills, description validation, and Figma-like Song Media controls.
+
+### Verification
+
+The frontend was checked after the layout and component changes with:
+
+* `npm.cmd run lint`
+* `npm.cmd run build`
+* `npm.cmd test`
+
+### Remaining Work
+
+* Continue pixel-level visual tuning against the Figma screenshot if Ferlyn identifies remaining spacing, sizing, or color differences.
+* Replace placeholder symbols with Lucide icons where appropriate.
+* Connect Add mood tag to an actual editable input or selector.
+* Expand vulgarity validation into a shared validation utility if other forms need the same behavior.
+* Reconnect save/preview/generate actions to real workflows when backend integration resumes.
+
+---
+
+## 2026-07-02
+
+### Feature
+
+Creator Studio Live Preview, Media Controls, and Header Refactor Follow-up
+
+### AI Tool Used
+
+Codex
+
+### Objective
+
+Continue refining the Creator Studio page so the metadata form, media upload controls, live preview panel, and reusable header account controls behave more like the intended creator workflow.
+
+The focus was to improve local UI behavior without adding backend logic.
+
+### Prompt Summary
+
+Ferlyn requested multiple follow-up improvements to the Studio page:
+
+* Add a remove or cross button beside the uploaded audio file.
+* Allow uploaded audio to be played from the live preview.
+* Allow a detected YouTube link to be playable in the preview area.
+* Leave YouTube duration as `--` because backend metadata extraction is not implemented yet.
+* Turn the Mood Tags add row into a usable text field.
+* Add icons to the mood and language pills in the preview.
+* Replace the preview pill icons with the supplied SVGs.
+* Ensure all selected mood tags appear in the preview, not only the first mood.
+* Extract the Ferlyn profile, dark mode, and notification cluster into a reusable component because it repeats across creator pages.
+* Make the custom "Others" language input participate in the live preview when the creator types a value such as `korean`.
+
+### AI Output Summary
+
+Codex implemented the requested Studio refinements across the existing React component structure.
+
+Files created:
+
+* `frontend/src/components/CreatorAccountWidget.jsx`
+
+Files modified:
+
+* `frontend/src/pages/Studio.jsx`
+* `frontend/src/components/studio/StudioHeader.jsx`
+* `frontend/src/components/studio/LivePreviewCard.jsx`
+* `frontend/src/components/studio/MoodTagSelector.jsx`
+* `frontend/src/components/studio/SongInformationCard.jsx`
+* `frontend/src/components/studio/SongMediaUpload.jsx`
+* `frontend/src/App.css`
+* `AI_DEVELOPMENT_JOURNAL.md`
+
+Implemented refinements:
+
+* Added an uploaded audio remove button beside the selected filename.
+* Cleared the stored filename, audio duration, preview URL, and file input when removing uploaded audio.
+* Added browser audio playback support from the live preview play button when an uploaded audio file exists.
+* Added YouTube embed preview support when a valid YouTube link is pasted and no uploaded audio is selected.
+* Kept YouTube duration as `--` because direct frontend duration detection is not reliable without backend metadata support.
+* Converted the Mood Tags add control from a static button into a local text input with Add and Enter submit behavior.
+* Prevented duplicate mood tags and preserved the maximum of five mood tags.
+* Added SVG icons inside preview pills.
+* Replaced the mood and language pill icons with Ferlyn-provided SVG paths.
+* Updated the preview to display every selected mood tag as its own pill.
+* Updated the preview language pill and language count to include custom "Others" input values.
+* Made typing in the custom language field automatically select the `Others` checkbox.
+* Extracted the creator profile/actions cluster into `CreatorAccountWidget`.
+* Updated `StudioHeader` to consume the reusable account widget.
+* Updated `Studio.jsx` to render `StudioHeader` instead of owning header markup directly.
+* Moved the account cluster CSS from Studio-specific selectors to reusable `creator-account-widget` selectors.
+
+### Human Review
+
+Partially accepted through iterative review.
+
+Ferlyn reviewed the UI in the browser after each small change and identified missing behavior or visual mismatches, including missing mood display, custom language handling, and repeated header account markup.
+
+### Human Modifications
+
+No direct human code modifications were made during this follow-up.
+
+Ferlyn provided the visual references, SVG icon paths, and product decisions for how the preview should behave.
+
+### Final Outcome
+
+The Studio page now has richer local creator interactions:
+
+* Uploaded audio can be removed and previewed.
+* YouTube links can display a playable embedded preview.
+* Live preview fields update as the creator types.
+* Mood tags can be added through an actual text field.
+* All selected mood tags display in the preview.
+* Custom "Others" languages display in the preview and count.
+* The repeated creator account control is now separated into a reusable component.
+
+### Verification
+
+The frontend was checked repeatedly after changes with:
+
+* `npm.cmd run build`
+
+Each build completed successfully after the latest changes.
+
+### Remaining Work
+
+* Connect YouTube duration to backend metadata later, likely through a YouTube Data API or server-side extraction endpoint.
+* Connect uploaded media and YouTube link persistence to real Studio save APIs.
+* Replace remaining placeholder or corrupted glyph icons in older components with consistent icon components.
+* Reuse `CreatorAccountWidget` across other creator pages that need the same account cluster.

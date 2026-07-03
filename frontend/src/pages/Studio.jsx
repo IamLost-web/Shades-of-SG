@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import LyricsCard from '../components/studio/LyricsCard'
 import LivePreviewCard from '../components/studio/LivePreviewCard'
 import MetadataStepper from '../components/studio/MetadataStepper'
+import PreviewPublishPanel from '../components/studio/PreviewPublishPanel'
 import SongInformationCard from '../components/studio/SongInformationCard'
 import StudioFooter from '../components/studio/StudioFooter'
 import StudioHeader from '../components/studio/StudioHeader'
@@ -44,6 +46,7 @@ function getMediaMimeType(file) {
 }
 
 export default function Studio() {
+  const navigate = useNavigate()
   const [formData, setFormData] = useState(initialFormData)
   const [selectedLanguages, setSelectedLanguages] = useState(initialLanguages)
   const [selectedMoods, setSelectedMoods] = useState(initialMoods)
@@ -60,6 +63,7 @@ export default function Studio() {
     configured: null,
     error: '',
   })
+  const [lastSavedAt, setLastSavedAt] = useState(null)
 
   useEffect(() => {
     return () => {
@@ -198,6 +202,14 @@ export default function Studio() {
     .filter((language) => language !== 'Others')
     .concat(selectedLanguages.includes('Others') && formData.otherLanguage.trim() ? [formData.otherLanguage.trim()] : [])
 
+  const lastSavedLabel = useMemo(() => {
+    if (!lastSavedAt) {
+      return 'Draft not saved yet'
+    }
+
+    return `Draft last saved at ${lastSavedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+  }, [lastSavedAt])
+
   function readFileAsBase64(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -270,58 +282,106 @@ export default function Studio() {
     }
   }
 
+  function handleSaveDraft() {
+    const now = new Date()
+    setLastSavedAt(now)
+    window.alert('Draft saved')
+  }
+
+  function handleGenerateVideo() {
+    navigate('/creator/generation')
+  }
+
+  function handlePublishSong() {
+    window.alert('Song published successfully')
+    navigate('/creator/songs')
+  }
+
+  function handleNextStep() {
+    setStudioStep((current) => Math.min(current + 1, 3))
+  }
+
   return (
     <div className="studio-page">
-      <StudioHeader />
+      <StudioHeader
+        activeStep={studioStep}
+        onBackToLyrics={() => setStudioStep(2)}
+        onGenerateVideo={handleGenerateVideo}
+        onPublishSong={handlePublishSong}
+        onSaveDraft={handleSaveDraft}
+      />
 
-      <section className="studio-main-grid">
-        <div className="studio-form-column">
-          <MetadataStepper activeStep={studioStep} />
+      {studioStep === 3 ? (
+        <section className="studio-form-column">
+          <MetadataStepper activeStep={studioStep} compact onStepChange={setStudioStep} />
+          <PreviewPublishPanel
+            audioSrc={audioPreviewUrl}
+            artist={formData.artist}
+            description={formData.description}
+            duration={audioDuration}
+            languages={previewLanguages}
+            mediaType={mediaType}
+            moods={selectedMoods}
+            theme={formData.theme}
+            title={formData.title}
+            youtubeLink={formData.youtubeLink}
+          />
+        </section>
+      ) : (
+        <section className="studio-main-grid">
+          <div className="studio-form-column">
+            <MetadataStepper activeStep={studioStep} onStepChange={setStudioStep} />
 
-          {studioStep === 1 ? (
-            <SongInformationCard
-              audioFileName={audioFileName}
-              descriptionLength={formData.description.length}
-              formData={formData}
-              onAudioFileChange={handleAudioFileChange}
-              onAudioFileClear={clearAudioFile}
-              onFieldChange={updateField}
-              onLanguageToggle={toggleLanguage}
-              onMoodToggle={toggleMood}
-              onOtherLanguageChange={updateOtherLanguage}
-              onYouTubeLinkChange={updateYouTubeLink}
-              selectedLanguages={selectedLanguages}
-              selectedMoods={selectedMoods}
-            />
-          ) : (
-            <LyricsCard
-              canExtractLyrics={Boolean(selectedMediaFile || formData.youtubeLink.trim())}
-              extractionError={extractionError}
-              extractionStatus={extractionStatus}
-              lyrics={lyrics}
-              onExtractLyrics={extractLyrics}
-              onLyricsChange={setLyrics}
-              transcriptionStatus={transcriptionStatus}
-              youtubeLink={formData.youtubeLink}
-            />
-          )}
-        </div>
+            {studioStep === 1 ? (
+              <SongInformationCard
+                audioFileName={audioFileName}
+                descriptionLength={formData.description.length}
+                formData={formData}
+                onAudioFileChange={handleAudioFileChange}
+                onAudioFileClear={clearAudioFile}
+                onFieldChange={updateField}
+                onLanguageToggle={toggleLanguage}
+                onMoodToggle={toggleMood}
+                onOtherLanguageChange={updateOtherLanguage}
+                onYouTubeLinkChange={updateYouTubeLink}
+                selectedLanguages={selectedLanguages}
+                selectedMoods={selectedMoods}
+              />
+            ) : (
+              <LyricsCard
+                canExtractLyrics={Boolean(selectedMediaFile || formData.youtubeLink.trim())}
+                extractionError={extractionError}
+                extractionStatus={extractionStatus}
+                lyrics={lyrics}
+                onExtractLyrics={extractLyrics}
+                onLyricsChange={setLyrics}
+                transcriptionStatus={transcriptionStatus}
+                youtubeLink={formData.youtubeLink}
+              />
+            )}
+          </div>
 
-        <LivePreviewCard
-          artist={formData.artist}
-          audioSrc={audioPreviewUrl}
-          description={formData.description}
-          duration={audioDuration}
-          languages={previewLanguages}
-          mediaType={mediaType}
-          moods={selectedMoods}
-          theme={formData.theme}
-          title={formData.title}
-          youtubeLink={formData.youtubeLink}
-        />
-      </section>
+          <LivePreviewCard
+            artist={formData.artist}
+            audioSrc={audioPreviewUrl}
+            description={formData.description}
+            duration={audioDuration}
+            languages={previewLanguages}
+            mediaType={mediaType}
+            moods={selectedMoods}
+            theme={formData.theme}
+            title={formData.title}
+            youtubeLink={formData.youtubeLink}
+          />
+        </section>
+      )}
 
-      <StudioFooter activeStep={studioStep} onBack={() => setStudioStep(1)} onNext={() => setStudioStep((current) => Math.min(current + 1, 2))} />
+      <StudioFooter
+        activeStep={studioStep}
+        lastSavedLabel={lastSavedLabel}
+        onNext={handleNextStep}
+        onPublish={handlePublishSong}
+      />
     </div>
   )
 }

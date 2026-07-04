@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 const creatorLinks = [
   { icon: 'dashboard', label: 'Dashboard', to: '/creator/dashboard' },
@@ -67,6 +68,14 @@ function SidebarIcon({ type }) {
 }
 
 export default function Sidebar() {
+  const navigate = useNavigate()
+  const { signOut } = useAuth()
+
+  function handleLogout() {
+    signOut()
+    navigate('/login', { replace: true })
+  }
+
   return (
     <aside className="creator-sidebar">
       <div className="creator-sidebar__brand">
@@ -90,7 +99,7 @@ export default function Sidebar() {
           <span className="creator-sidebar__utility-icon creator-sidebar__utility-icon--help" aria-hidden="true" />
           <span>Help &amp; Support</span>
         </button>
-        <button className="creator-sidebar__utility" type="button">
+        <button className="creator-sidebar__utility" onClick={handleLogout} type="button">
           <span className="creator-sidebar__utility-icon creator-sidebar__utility-icon--logout" aria-hidden="true" />
           <span>Log out</span>
         </button>

@@ -3,12 +3,6 @@ import { Link } from 'react-router-dom'
 import Reveal from '../components/Reveal'
 import useReveal from '../hooks/useReveal'
 
-/*
-TODO - Shermaine
-
-Wire "Guided Music Lessons" card to its real route once that page exists.
-*/
-
 const milestones = [
   {
     description: 'On 9 August 1965, Singapore became a sovereign nation — the day modern Singapore was born.',
@@ -65,7 +59,7 @@ const learningModules = [
     icon: '🎼',
     id: 'lessons',
     title: 'Guided Music Lessons',
-    to: null,
+    to: '/learning/guided-lessons',
   },
 ]
 

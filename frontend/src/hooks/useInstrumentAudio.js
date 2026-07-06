@@ -110,5 +110,18 @@ export default function useInstrumentAudio() {
     [playNote]
   )
 
-  return { playMelody, playNote }
+  const playChord = useCallback(
+    (instrument, noteLabels) => {
+      noteLabels.forEach((noteLabel) => {
+        const note = instrument.notes.find((candidate) => candidate.label === noteLabel)
+
+        if (note) {
+          playNote(instrument, note)
+        }
+      })
+    },
+    [playNote]
+  )
+
+  return { playChord, playMelody, playNote }
 }

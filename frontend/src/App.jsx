@@ -9,6 +9,7 @@ import CreatorSongs from './pages/CreatorSongs'
 import Dashboard from './pages/Dashboard'
 import ForgotPassword from './pages/ForgotPassword'
 import GenerationProgress from './pages/GenerationProgress'
+import GuidedMusicLessons from './pages/GuidedMusicLessons'
 import HeritageVault from './pages/HeritageVault'
 import InstrumentDiscoveryLab from './pages/InstrumentDiscoveryLab'
 import InstrumentPlayground from './pages/InstrumentPlayground'
@@ -71,6 +72,7 @@ function App() {
           <Route element={<LearningHub />} path="/learning" />
           <Route element={<HeritageVault />} path="/learning/heritage-vault" />
           <Route element={<InstrumentDiscoveryLab />} path="/learning/instrument-lab" />
+          <Route element={<GuidedMusicLessons />} path="/learning/guided-lessons" />
           <Route element={<RhythmHub />} path="/rhythm-game" />
           <Route element={<ReflectionWall />} path="/reflections" />
           <Route element={<Profile />} path="/profile" />

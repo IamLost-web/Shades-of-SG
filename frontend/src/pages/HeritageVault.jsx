@@ -6,7 +6,6 @@ import Reveal from '../components/Reveal'
 /*
 TODO - Shermaine
 
-Wire "Guided Music Lessons" continuation card to its real route once it exists.
 Replace placeholder photo/video/audio tiles with real archival media when available.
 */
 
@@ -264,17 +263,17 @@ export default function HeritageVault() {
         <h2>Singapore's Multicultural Heritage</h2>
 
         <div className="vault-continue__grid">
-          <Link className="vault-continue__card" to="/songs/demo-song/playground">
+          <Link className="vault-continue__card" to="/learning/instrument-lab">
             <span aria-hidden="true">🥁</span>
-            <strong>Instrument Playground</strong>
+            <strong>Instrument Discovery Lab</strong>
             <p>Learn about the traditional instruments used across Singapore's diverse communities.</p>
           </Link>
 
-          <button className="vault-continue__card" type="button">
+          <Link className="vault-continue__card" to="/learning/guided-lessons">
             <span aria-hidden="true">🎼</span>
             <strong>Guided Music Lessons</strong>
             <p>Discover the songs that continue to unite Singaporeans every National Day.</p>
-          </button>
+          </Link>
         </div>
       </Reveal>
     </div>

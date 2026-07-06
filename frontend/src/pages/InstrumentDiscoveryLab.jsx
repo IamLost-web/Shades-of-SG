@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import InstrumentCard from '../components/lab/InstrumentCard'
 import InstrumentPlayer from '../components/lab/InstrumentPlayer'
 import Reveal from '../components/Reveal'
@@ -9,7 +10,6 @@ TODO - Shermaine
 Add real instrument recordings by giving an instrument a `samples` map
 (see hooks/useInstrumentAudio.js) — synthesized tones are a placeholder
 until authentic angklung/erhu/tabla/kompang recordings are available.
-Wire "Continue to Guided Music Lessons" once that page exists.
 */
 
 const instruments = [
@@ -200,9 +200,9 @@ export default function InstrumentDiscoveryLab() {
         <p className="lab-continue__lead">
           Now discover how these sounds come together to create the songs that unite the nation.
         </p>
-        <button className="lab-continue__cta" type="button">
+        <Link className="lab-continue__cta" to="/learning/guided-lessons">
           Continue to Guided Music Lessons <span aria-hidden="true">→</span>
-        </button>
+        </Link>
       </Reveal>
     </div>
   )

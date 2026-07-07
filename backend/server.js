@@ -6,7 +6,7 @@ const sequelize = require('./config/database');
 const authRouter = require('./routes/auth');
 const scoresRouter = require('./routes/scores');
 const songsRouter = require('./routes/songs');
-const generationRouter = require('./routes/generation');
+const generationRouter = require('./routes/aiGeneration');
 const transcriptionsRouter = require('./routes/transcriptions');
 const { seedCreatorAccount } = require('./services/authService');
 

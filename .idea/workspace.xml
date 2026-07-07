@@ -6,6 +6,10 @@
   <component name="ChangeListManager">
     <list default="true" id="f754e5c7-39e4-48fe-930f-c5abcd004952" name="Changes" comment="merged with violet 3">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Project Details/HIGH_LEVEL_DESIGN.md" beforeDir="false" afterPath="$PROJECT_DIR$/Project Details/HIGH_LEVEL_DESIGN.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/routes/generation.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/routes/aiGeneration.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/server.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/server.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.jsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -250,7 +254,15 @@
       <option name="project" value="LOCAL" />
       <updated>1783407673607</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="merged with violet 3">
+      <option name="closed" value="true" />
+      <created>1783430101471</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1783430101471</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -275,6 +287,7 @@
     <MESSAGE value="frontend work for Violet (also optimized image generation by reusing same pics for chorus)" />
     <MESSAGE value="clean up" />
     <MESSAGE value="merged with violet 3" />
-    <option name="LAST_COMMIT_MESSAGE" value="merged with violet 3" />
+    <MESSAGE value="getting extraction to work on my branch" />
+    <option name="LAST_COMMIT_MESSAGE" value="getting extraction to work on my branch" />
   </component>
 </project>

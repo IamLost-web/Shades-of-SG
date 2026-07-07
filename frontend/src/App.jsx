@@ -27,7 +27,7 @@ import SongsLibrary from './pages/SongsLibrary'
 import Studio from './pages/Studio'
 import TriviaHub from './pages/TriviaHub'
 import './App.css'
-import CreatorGenerationJobs from './pages/CreatorGenerationJobs.jsx'
+import CreatorGenerationJobs from './pages/CreatorGenerationJobs'
 
 function MainExperience() {
   const { user } = useAuth()

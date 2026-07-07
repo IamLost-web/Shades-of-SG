@@ -4,12 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f754e5c7-39e4-48fe-930f-c5abcd004952" name="Changes" comment="merged with violet 3">
+    <list default="true" id="f754e5c7-39e4-48fe-930f-c5abcd004952" name="Changes" comment="getting generation to work">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Project Details/HIGH_LEVEL_DESIGN.md" beforeDir="false" afterPath="$PROJECT_DIR$/Project Details/HIGH_LEVEL_DESIGN.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/routes/generation.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/routes/aiGeneration.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/server.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/server.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/controllers/songController.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/controllers/songController.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -262,7 +260,15 @@
       <option name="project" value="LOCAL" />
       <updated>1783430101471</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary="getting generation to work">
+      <option name="closed" value="true" />
+      <created>1783430993366</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1783430993366</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -288,6 +294,7 @@
     <MESSAGE value="clean up" />
     <MESSAGE value="merged with violet 3" />
     <MESSAGE value="getting extraction to work on my branch" />
-    <option name="LAST_COMMIT_MESSAGE" value="getting extraction to work on my branch" />
+    <MESSAGE value="getting generation to work" />
+    <option name="LAST_COMMIT_MESSAGE" value="getting generation to work" />
   </component>
 </project>

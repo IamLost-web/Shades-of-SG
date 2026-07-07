@@ -1,6 +1,7 @@
 const { Song } = require('../models')
 const aiStorageService = require('../services/aiStorageService')
-const youtubeService = require('../services/youtubeService')
+const audioExtractionService = require('../services/audioExtractionService')
+const fs = require('fs')
 
 const uploadSong = async (req, res, next) => {
   try {
@@ -26,7 +27,15 @@ const uploadSong = async (req, res, next) => {
     if (req.file) {
       audioData = await aiStorageService.uploadAudioStream(req.file.buffer)
     } else if (youtubeUrl) {
-      audioData = await youtubeService.processYouTubeAudio(youtubeUrl)
+      // 1. Extract the audio to a local temp file using the new service
+      const extractedInfo = await audioExtractionService.extractAudioFromYouTube(youtubeUrl)
+
+      // 2. Create a read stream from the temp file to upload to Cloudinary
+      const fileStream = fs.createReadStream(extractedInfo.filePath)
+      audioData = await aiStorageService.uploadAudioStream(fileStream)
+
+      // 3. Clean up the temp file locally
+      await extractedInfo.cleanup()
     }
 
     // Save to PostgreSQL

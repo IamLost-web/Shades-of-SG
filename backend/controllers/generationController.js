@@ -1,4 +1,5 @@
 const { GenerationJob, Song } = require('../models')
+const { cleanupJobFiles } = require('../services/cleanupService') // IMPORT ADDED HERE
 
 /**
  * Retrieves all generation jobs, including their associated song titles.
@@ -73,11 +74,57 @@ const getGenerationStatus = async (req, res, next) => {
 }
 
 /**
- * Placeholder for the background video generation pipeline.
+ * The background video generation pipeline (Phase 5 Cleanup injected here)
  */
 const runGenerationPipeline = async (jobId) => {
   console.log(`[Background Worker] Starting generation pipeline for Job ID: ${jobId}...`)
-  // Future logic goes here...
+
+  try {
+    // ==========================================
+    // YOUR ASYNC AI PIPELINE RUNS HERE
+    // - Extract audio from URL/MP3
+    // - Generate Scene Plans (LLM)
+    // - Generate Image Frames (Text-to-Image)
+    // - Assemble via FFmpeg
+    // - Upload to Cloudinary
+    // ==========================================
+
+    // Update DB on Success
+    await GenerationJob.update(
+      { status: 'COMPLETED', progress: 100, errorMessage: null },
+      { where: { id: jobId } }
+    )
+
+    // Run Cleanup on successful completion
+    await cleanupJobFiles(jobId)
+  } catch (error) {
+    console.error(`[Generation Pipeline Error] Job ${jobId}:`, error)
+
+    // ---------------------------------------------------------
+    // THE CLEANUP CREW & ERROR BOUNDARY (Phase 5 Requirement)
+    // ---------------------------------------------------------
+    try {
+      if (jobId) {
+        // Database Update: Set to FAILED and record the exact error
+        await GenerationJob.update(
+          {
+            status: 'FAILED',
+            errorMessage: error.message,
+          },
+          { where: { id: jobId } }
+        )
+
+        // File Wiping: Remove half-baked temporary files so they don't bloat the server
+        await cleanupJobFiles(jobId)
+      }
+    } catch (fallbackError) {
+      // Catch edge cases where the DB is entirely unreachable
+      console.error(
+        `[Fallback Failure] Could not update DB or wipe files for Job ${jobId}:`,
+        fallbackError
+      )
+    }
+  }
 }
 
 /**
@@ -101,7 +148,7 @@ const startGeneration = async (req, res, next) => {
       progress: 10,
     })
 
-    // The Background Trigger (No await)
+    // The Background Trigger (No await - runs `runGenerationPipeline` asynchronously)
     runGenerationPipeline(newJob.id).catch((err) => {
       console.error(`[Background Worker Error] Job ID ${newJob.id}:`, err)
     })
@@ -111,6 +158,7 @@ const startGeneration = async (req, res, next) => {
       jobId: newJob.id,
     })
   } catch (error) {
+    // Global Error Handoff for controller/request errors
     next(error)
   }
 }

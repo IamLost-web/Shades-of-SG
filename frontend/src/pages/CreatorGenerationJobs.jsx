@@ -151,9 +151,9 @@ export default function CreatorGenerationJobs() {
           title: formData.title,
           artist: formData.artist || 'Unknown Artist',
           lyrics: formData.lyrics,
-          mediaUrl: extractedAudioUrl || youtubeLink,
           theme: 'Standard',
-          description: 'AI Generated' // Dummy data for constraints
+          description: 'AI Generated', // Dummy data for constraints
+          ...(extractedAudioUrl ? { audioUrl: extractedAudioUrl } : { youtubeUrl: youtubeLink })
         })
       })
       const songContentType = songRes.headers.get("content-type");
@@ -401,7 +401,7 @@ export default function CreatorGenerationJobs() {
                   </div>
                 </div>
                 <div className="creator-song-actions">
-                  <button className="studio-button studio-button--secondary" onClick={() => navigate(`/generation/${job.id}`)} type="button">
+                  <button className="studio-button studio-button--secondary" onClick={() => navigate(`/creator/generation/${job.id}`)} type="button">
                     View Status
                   </button>
                 </div>

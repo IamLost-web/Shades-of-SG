@@ -1,13 +1,36 @@
-const { Song } = require('../models')
+const { Song, User } = require('../models')
 const aiStorageService = require('../services/aiStorageService')
 const audioExtractionService = require('../services/audioExtractionService')
 const fs = require('fs')
 
 const uploadSong = async (req, res, next) => {
   try {
-    const { title, artist, youtubeUrl } = req.body
-    // Mocking user ID until Auth is finalized to prevent breaking
-    const creatorId = req.user ? req.user.id : '00000000-0000-0000-0000-000000000000'
+    const { title, artist, youtubeUrl, audioUrl, lyrics, theme, description } = req.body
+    let creatorId = req.user ? req.user.id : null;
+
+    if (!creatorId) {
+      // Fallback: lookup seeded user to unblock development when Auth is bypassed
+      const seedEmail = process.env.SEED_CREATOR_EMAIL || 'violet@shadesofsg.com';
+      if (seedEmail) {
+        const seedUser = await User.findOne({ where: { email: seedEmail } });
+        if (seedUser) {
+          creatorId = seedUser.id;
+        }
+      }
+    }
+
+    if (!creatorId) {
+      const error = new Error('Invalid session: User does not exist. Please log in again.')
+      error.statusCode = 401
+      throw error
+    }
+
+    const userExists = await User.findByPk(creatorId)
+    if (!userExists) {
+      const error = new Error('Invalid session: User does not exist. Please log in again.')
+      error.statusCode = 401
+      throw error
+    }
 
     if (!title) {
       const error = new Error('Song title is required.')
@@ -15,24 +38,26 @@ const uploadSong = async (req, res, next) => {
       throw error
     }
 
-    if (!req.file && !youtubeUrl) {
-      const error = new Error('You must provide either an audio file or a YouTube URL.')
+    if (!req.file && !youtubeUrl && !audioUrl) {
+      const error = new Error('You must provide an audio file, a YouTube URL, or an existing extracted audio URL.')
       error.statusCode = 400
       throw error
     }
 
-    let audioData
+    let finalAudioUrl = audioUrl; // Default to pre-extracted if provided
 
-    // Route to the appropriate service
+    // Route to the appropriate service if extraction/upload is needed
     if (req.file) {
-      audioData = await aiStorageService.uploadAudioStream(req.file.buffer)
-    } else if (youtubeUrl) {
+      const audioData = await aiStorageService.uploadAudioStream(req.file.buffer)
+      finalAudioUrl = audioData.audioUrl
+    } else if (youtubeUrl && !audioUrl) {
       // 1. Extract the audio to a local temp file using the new service
       const extractedInfo = await audioExtractionService.extractAudioFromYouTube(youtubeUrl)
 
       // 2. Create a read stream from the temp file to upload to Cloudinary
       const fileStream = fs.createReadStream(extractedInfo.filePath)
-      audioData = await aiStorageService.uploadAudioStream(fileStream)
+      const audioData = await aiStorageService.uploadAudioStream(fileStream)
+      finalAudioUrl = audioData.audioUrl
 
       // 3. Clean up the temp file locally
       await extractedInfo.cleanup()
@@ -43,10 +68,11 @@ const uploadSong = async (req, res, next) => {
       creatorId,
       title,
       artist: artist || null,
-      audioUrl: audioData.audioUrl,
+      audioUrl: finalAudioUrl,
+      lyrics: lyrics || null,
+      theme: theme || null,
+      description: description || null,
       status: 'DRAFT',
-
-      // left out durationSecs because it does not exist in Song.js model (yet?)
     })
 
     return res.status(201).json({

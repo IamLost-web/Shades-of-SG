@@ -4,14 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f754e5c7-39e4-48fe-930f-c5abcd004952" name="Changes" comment="">
+    <list default="true" id="f754e5c7-39e4-48fe-930f-c5abcd004952" name="Changes" comment="fixed audio extraction and lyrics extraction (it all works as it had last night)">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/controllers/generationController.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/controllers/generationController.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/controllers/songController.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/controllers/songController.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/middleware/errorHandler.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/middleware/errorHandler.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/routes/songs.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/routes/songs.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/server.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/server.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/services/aiScenePlanner.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/services/aiScenePlanner.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/pages/CreatorGenerationJobs.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/CreatorGenerationJobs.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/GenerationProgress.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/GenerationProgress.jsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -116,7 +115,7 @@
       <workItem from="1783590108170" duration="1620000" />
       <workItem from="1783605927360" duration="600000" />
       <workItem from="1783617070900" duration="2882000" />
-      <workItem from="1783620323301" duration="1099000" />
+      <workItem from="1783620323301" duration="3778000" />
     </task>
     <task id="LOCAL-00001" summary="basic setup">
       <option name="closed" value="true" />
@@ -310,7 +309,15 @@
       <option name="project" value="LOCAL" />
       <updated>1783586556491</updated>
     </task>
-    <option name="localTasksCounter" value="25" />
+    <task id="LOCAL-00025" summary="fixed audio extraction and lyrics extraction (it all works as it had last night)">
+      <option name="closed" value="true" />
+      <created>1783621632359</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1783621632359</updated>
+    </task>
+    <option name="localTasksCounter" value="26" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -341,6 +348,7 @@
     <MESSAGE value="Image Generation &amp; Chorus Caching" />
     <MESSAGE value="Cleanup" />
     <MESSAGE value="somehow everything broke" />
-    <option name="LAST_COMMIT_MESSAGE" value="somehow everything broke" />
+    <MESSAGE value="fixed audio extraction and lyrics extraction (it all works as it had last night)" />
+    <option name="LAST_COMMIT_MESSAGE" value="fixed audio extraction and lyrics extraction (it all works as it had last night)" />
   </component>
 </project>

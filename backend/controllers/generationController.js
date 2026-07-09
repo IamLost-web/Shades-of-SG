@@ -1,6 +1,6 @@
 const fs = require('fs').promises
 const path = require('path')
-const { GenerationJob, Song } = require('../models')
+const { GenerationJob, Song, SceneSegment, GeneratedFrame } = require('../models')
 const { generateScenePlan } = require('../services/aiScenePlanner')
 const { generateFrames } = require('../services/frameGenerator')
 const { assembleVideo } = require('../services/videoAssembler')
@@ -86,7 +86,25 @@ const getGenerationStatus = async (req, res, next) => {
     const { jobId } = req.params
 
     const job = await GenerationJob.findByPk(jobId, {
-      include: [{ model: Song, as: 'song', attributes: ['title', 'artist'] }],
+      include: [
+        { 
+          model: Song, 
+          as: 'song', 
+          attributes: ['title', 'artist'],
+          include: [
+            {
+              model: SceneSegment,
+              as: 'sceneSegments',
+              include: [
+                {
+                  model: GeneratedFrame,
+                  as: 'generatedFrames'
+                }
+              ]
+            }
+          ]
+        }
+      ],
     })
 
     if (!job) {

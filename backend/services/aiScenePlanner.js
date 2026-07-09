@@ -50,10 +50,10 @@ The JSON schema must strictly follow this structure:
 {
   "scenes": [
     {
-      "timestampSecs": <number, starting second of the scene>,
-      "duration": <number, duration of the scene in seconds>,
+      "startTime": <number, starting second of the scene>,
+      "endTime": <number, ending second of the scene>,
       "lyrics": "<string, the exact lyrics spoken/sung during this scene, or '[Instrumental]' if none>",
-      "imagePrompt": "<string, detailed DALL-E 3 image generation prompt>"
+      "visualPrompt": "<string, detailed DALL-E 3 image generation prompt>"
     }
   ]
 }
@@ -102,10 +102,10 @@ ${song.lyrics || 'No lyrics provided.'}`
     const sceneRecords = parsedData.scenes.map((scene) => ({
       jobId: jobId,
       songId: songId,
-      timestampSecs: scene.timestampSecs,
-      duration: scene.duration,
+      startTime: scene.startTime,
+      endTime: scene.endTime,
       lyrics: scene.lyrics,
-      imagePrompt: scene.imagePrompt,
+      visualPrompt: scene.visualPrompt,
     }))
 
     await SceneSegment.bulkCreate(sceneRecords)

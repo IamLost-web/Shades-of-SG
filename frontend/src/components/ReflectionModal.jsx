@@ -7,7 +7,7 @@ export default function ReflectionModal({ draft, isGuest = false, reflection, so
   const [isAnonymous, setIsAnonymous] = useState(reflection?.isAnonymous ?? draft?.isAnonymous ?? false)
   const [songId, setSongId] = useState(reflection?.songId || draft?.songId || '')
   const [guestConfirmed, setGuestConfirmed] = useState(false)
-  const [memoryTypes, setMemoryTypes] = useState([])
+  const [memoryTypes, setMemoryTypes] = useState(reflection?.tags || draft?.tags || [])
   const textareaRef = useRef(null)
 
   useEffect(() => {
@@ -17,8 +17,8 @@ export default function ReflectionModal({ draft, isGuest = false, reflection, so
   }, [onClose])
 
   useEffect(() => {
-    if (!reflection) onDraftChange?.({ content, isAnonymous, songId })
-  }, [content, isAnonymous, onDraftChange, reflection, songId])
+    if (!reflection) onDraftChange?.({ content, isAnonymous, songId, tags: memoryTypes })
+  }, [content, isAnonymous, memoryTypes, onDraftChange, reflection, songId])
 
   function selectSong(event) {
     setSongId(event.target.value)

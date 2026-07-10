@@ -1,6 +1,16 @@
+import { useState } from 'react'
+
 export default function ModerationFilters({ filters, hasActiveFilters, onChange, onClear, songs }) {
+  const [isOpen, setIsOpen] = useState(false)
+
   return (
-    <div className="crm-filters">
+    <div className="crm-filter-shell">
+      <button aria-expanded={isOpen} className="crm-filter-toggle" onClick={() => setIsOpen((current) => !current)} type="button">
+        Filters {hasActiveFilters ? <span>Active</span> : null}
+      </button>
+      {isOpen ? <button aria-label="Close filter drawer" className="crm-filter-backdrop" onClick={() => setIsOpen(false)} type="button" /> : null}
+      <div className={`crm-filters${isOpen ? ' is-open' : ''}`}>
+      <div className="crm-filter-mobile-header"><strong>Filter reflections</strong><button aria-label="Close filters" onClick={() => setIsOpen(false)} type="button">×</button></div>
       <label className="crm-search">
         <span className="crm-sr-only">Search reflections</span>
         <span aria-hidden="true" className="crm-search__icon">⌕</span>
@@ -26,7 +36,8 @@ export default function ModerationFilters({ filters, hasActiveFilters, onChange,
         <input checked={filters.anonymousOnly} onChange={(event) => onChange('anonymousOnly', event.target.checked)} type="checkbox" />
         <span>Anonymous only</span>
       </label>
-      {hasActiveFilters ? <button className="crm-clear-filters" onClick={onClear} type="button">Clear filters</button> : null}
+      {hasActiveFilters ? <button className="crm-clear-filters" onClick={() => { onClear(); setIsOpen(false) }} type="button">Clear filters</button> : null}
+      </div>
     </div>
   )
 }

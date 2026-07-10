@@ -41,17 +41,20 @@ export default function ReflectionWall() {
 
   useEffect(() => {
     let active = true
-    setIsLoading(true)
-    Promise.all([getReflections(token), getReflectionSongs()])
-      .then(([nextReflections, nextSongs]) => {
-        if (!active) return
-        setReflections(nextReflections)
-        setSongs(nextSongs)
-        setError('')
-      })
-      .catch((nextError) => active && setError(nextError.message))
-      .finally(() => active && setIsLoading(false))
-    return () => { active = false }
+    const timer = window.setTimeout(() => {
+      if (!active) return
+      setIsLoading(true)
+      Promise.all([getReflections(token), getReflectionSongs()])
+        .then(([nextReflections, nextSongs]) => {
+          if (!active) return
+          setReflections(nextReflections)
+          setSongs(nextSongs)
+          setError('')
+        })
+        .catch((nextError) => active && setError(nextError.message))
+        .finally(() => active && setIsLoading(false))
+    }, 0)
+    return () => { active = false; window.clearTimeout(timer) }
   }, [token])
 
   useEffect(() => {
@@ -61,13 +64,17 @@ export default function ReflectionWall() {
   }, [toast])
 
   useEffect(() => {
-    if (!user || !token) return
+    if (!user || !token) return undefined
     const intent = getPostLoginIntent()
     if (intent?.returnTo === '/reflections' && intent.openReflectionModal) {
-      setReflectionDraft(intent.draftReflection || null)
-      setModalReflection(null)
-      setIsModalOpen(true)
+      const timer = window.setTimeout(() => {
+        setReflectionDraft(intent.draftReflection || null)
+        setModalReflection(null)
+        setIsModalOpen(true)
+      }, 0)
+      return () => window.clearTimeout(timer)
     }
+    return undefined
   }, [token, user])
 
   const visibleReflections = useMemo(() => {

@@ -174,13 +174,17 @@
 }
 .crm-tabs button.is-active span { background: #7950cf; color: #fff; }
 
+.crm-filter-shell { margin-bottom: 18px; }
 .crm-filters {
   align-items: end;
   display: grid;
   gap: 9px;
   grid-template-columns: minmax(210px, 1.5fr) minmax(130px, 0.8fr) minmax(145px, 0.8fr) auto auto;
-  margin-bottom: 18px;
 }
+
+.crm-filter-toggle,
+.crm-filter-mobile-header,
+.crm-filter-backdrop { display: none; }
 
 .crm-filters label:not(.crm-anonymous-toggle) {
   display: grid;
@@ -649,11 +653,35 @@
   .crm-stat-card__icon { height: 34px; width: 34px; }
   .crm-stat-card strong { font-size: 1.4rem; }
   .crm-workspace__main { border-radius: 14px; padding: 12px; }
-  .crm-filters { grid-template-columns: 1fr; }
+  .crm-filter-toggle {
+    align-items: center;
+    background: rgba(139, 92, 246, 0.12);
+    border: 1px solid rgba(167, 139, 250, 0.22);
+    border-radius: 10px;
+    color: #d8c9fa;
+    cursor: pointer;
+    display: flex;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 850;
+    justify-content: space-between;
+    min-height: 42px;
+    padding: 0 12px;
+    width: 100%;
+  }
+  .crm-filter-toggle span { background: #7650c5; border-radius: 999px; color: #fff; font-size: 0.6rem; padding: 4px 7px; text-transform: uppercase; }
+  .crm-filters { display: none; grid-template-columns: 1fr; }
+  .crm-filters.is-open { background: linear-gradient(160deg, #151b40, #0b102d); border: 1px solid rgba(196, 181, 253, .18); border-radius: 18px 18px 0 0; bottom: 0; box-shadow: 0 -20px 55px rgba(0,0,0,.46); display: grid; left: 0; max-height: 85svh; overflow-y: auto; padding: 18px; position: fixed; right: 0; z-index: 1451; }
+  .crm-filter-backdrop { background: rgba(2,5,16,.68); border: 0; display: block; inset: 0; position: fixed; z-index: 1450; }
+  .crm-filter-mobile-header { align-items: center; display: flex; justify-content: space-between; }
+  .crm-filter-mobile-header strong { color: #e8e4f2; font-size: 0.8rem; }
+  .crm-filter-mobile-header button { background: transparent; border: 0; color: #aeb6ca; cursor: pointer; font-size: 1.2rem; }
   .crm-search { grid-column: auto; }
   .crm-grid,
   .crm-skeleton-grid { grid-template-columns: 1fr; }
   .crm-note { min-height: 230px; }
+  .crm-note__actions button,
+  .crm-details__actions button { min-height: 44px; }
   .crm-details { border-radius: 0; width: 100vw; }
   .crm-details__actions { flex-wrap: wrap; }
   .crm-details__actions button { flex-basis: calc(50% - 5px); }

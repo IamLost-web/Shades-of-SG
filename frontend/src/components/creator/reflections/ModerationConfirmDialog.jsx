@@ -2,12 +2,17 @@ import { useEffect, useRef } from 'react'
 
 export default function ModerationConfirmDialog({ busy, onCancel, onConfirm, reflection }) {
   const cancelRef = useRef(null)
+  const previousFocusRef = useRef(document.activeElement)
 
   useEffect(() => {
+    const previousFocus = previousFocusRef.current
     cancelRef.current?.focus()
     const close = (event) => { if (event.key === 'Escape' && !busy) onCancel() }
     document.addEventListener('keydown', close)
-    return () => document.removeEventListener('keydown', close)
+    return () => {
+      document.removeEventListener('keydown', close)
+      previousFocus?.focus?.()
+    }
   }, [busy, onCancel])
 
   return (

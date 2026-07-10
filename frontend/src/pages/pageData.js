@@ -77,6 +77,5 @@ export const songFilterStatusMap = {
 export const placeholderCards = {
   achievements: ['First Reflection', 'Rhythm Starter', 'Culture Explorer'],
   logs: ['Frame generation queued', 'Audio analysis pending', 'Review required before publish'],
-  moderation: ['Pending reflections', 'Approved reflections', 'Flagged reflections'],
   resources: ['Oral history notes', 'Instrument guide', 'Timeline references'],
 }

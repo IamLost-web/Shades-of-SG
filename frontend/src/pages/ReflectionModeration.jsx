@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import CreatorPageShell from '../components/CreatorPageShell'
 import ModerationConfirmDialog from '../components/creator/reflections/ModerationConfirmDialog'
 import ModerationEmptyState from '../components/creator/reflections/ModerationEmptyState'
@@ -35,7 +36,8 @@ function HeartIcon() {
 }
 
 export default function ReflectionModeration() {
-  const { token } = useAuth()
+  const navigate = useNavigate()
+  const { signOut, token } = useAuth()
   const [activeStatus, setActiveStatus] = useState('PENDING')
   const [filters, setFilters] = useState({ anonymousOnly: false, dateFrom: '', search: '', songId: '' })
   const [reflections, setReflections] = useState([])
@@ -85,6 +87,11 @@ export default function ReflectionModeration() {
         })
         .catch((nextError) => {
           if (!active || currentRequest !== requestId.current) return
+          if (nextError.status === 401 || nextError.status === 403) {
+            signOut()
+            navigate('/login', { replace: true })
+            return
+          }
           setError(nextError.message)
           setReflections([])
           setSelectedId(null)
@@ -98,7 +105,7 @@ export default function ReflectionModeration() {
       active = false
       window.clearTimeout(timer)
     }
-  }, [activeStatus, filters, retryKey, token])
+  }, [activeStatus, filters, navigate, retryKey, signOut, token])
 
   useEffect(() => {
     if (!toast) return undefined

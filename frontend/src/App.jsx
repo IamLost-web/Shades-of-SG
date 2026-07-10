@@ -36,11 +36,11 @@ import KindMasterEditor from './pages/KindMasterEditor'
 function MainExperience() {
   const { user } = useAuth()
 
-  return <MainLayout role={user ? 'user' : 'guest'} />
-}
+  if (user?.role === 'CREATOR') {
+    return <Navigate replace to="/creator/dashboard" />
+  }
 
-function PublicLandingExperience() {
-  return <MainLayout role="guest" />
+  return <MainLayout role={user ? 'user' : 'guest'} />
 }
 
 function AuthExperience() {
@@ -64,11 +64,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<PublicLandingExperience />}>
-          <Route element={<Landing />} path="/" />
-        </Route>
-
         <Route element={<MainExperience />}>
+          <Route element={<Landing />} path="/" />
           <Route element={<SongsLibrary />} path="/songs" />
           <Route element={<SongExperience />} path="/songs/:id" />
           <Route element={<TriviaHub />} path="/songs/:id/trivia" />

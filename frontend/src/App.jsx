@@ -38,6 +38,10 @@ function MainExperience() {
   return <MainLayout role={user ? 'user' : 'guest'} />
 }
 
+function PublicLandingExperience() {
+  return <MainLayout role="guest" />
+}
+
 function AuthExperience() {
   const { user } = useAuth()
 
@@ -59,8 +63,11 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<MainExperience />}>
+        <Route element={<PublicLandingExperience />}>
           <Route element={<Landing />} path="/" />
+        </Route>
+
+        <Route element={<MainExperience />}>
           <Route element={<SongsLibrary />} path="/songs" />
           <Route element={<SongExperience />} path="/songs/:id" />
           <Route element={<TriviaHub />} path="/songs/:id/trivia" />

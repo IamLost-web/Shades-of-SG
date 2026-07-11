@@ -1048,3 +1048,167 @@ Guests and creators can play and view session results without database writes. R
 Authentication answers who may persist, not who may play. Keeping public gameplay open while restricting database writes produces a welcoming guest experience without contaminating registered progress data.
 
 MVP anti-cheat should protect the server's authoritative facts first: user identity, Song publication, allowed difficulty, derived rank, and feasible numeric bounds. Stronger competitive integrity requires a different architecture with issued sessions and replay verification.
+
+---
+
+## Phase 7 — Published-Song Reflection Wall and Moderated Identity
+
+### Objective
+
+Phase 7 connected the Reflection Wall to the published Song API and enforced the identity, ownership, and moderation boundaries for guests, registered users, and creators.
+
+Every reflection must now reference a real `PUBLISHED` Song. Reflections linked to missing or unpublished Songs cannot be submitted or exposed through the public Reflection Wall.
+
+### Reflection Submission Flow
+
+Reflection Wall loads its Song choices from the public published-Songs endpoint. It no longer relies on hardcoded Song names, `pageData.js`, `demo-song`, or mock Song arrays.
+
+When Reflection Wall is opened from Song Experience, the real Song ID is carried in the route:
+
+`/reflections?song_id=<song-id>`
+
+The requested Song is preselected only when it exists in the published Song response. An invalid, unknown, or unpublished query Song produces a safe unavailable state instead of silently selecting mock content.
+
+The backend validates the Song ID format, confirms that the Song exists, and requires `status = PUBLISHED`. Missing IDs, unknown Songs, and Songs in `DRAFT`, `GENERATING`, `READY`, or `ARCHIVED` are rejected.
+
+Reflection text remains required and subject to the existing length and content-safety rules. Anonymous mode, optional display names, and supported tags are validated rather than trusted directly from the client.
+
+### Corrected Moderation Rule
+
+All new reflections now start with `PENDING`, regardless of whether the author is:
+
+- a guest;
+- a logged-in registered user posting with their account identity; or
+- a logged-in registered user posting anonymously.
+
+No public client can submit an approved status or self-approve a reflection. Body-supplied moderation status is ignored. A submitted reflection becomes publicly visible only after an authorized creator approves it.
+
+The frontend confirms successful submission with a moderation message and does not insert a pending reflection into the public approved-only list.
+
+### Guest Behavior
+
+Guests may submit reflections anonymously. A guest cannot establish ownership or spoof a registered identity by sending `userId`, `user_id`, trusted author fields, or moderation status in the request body.
+
+Guest display names, when supported by the existing interface, are treated as untrusted input and validated and sanitized. No insecure guest edit or delete ownership mechanism was introduced.
+
+### Registered-User Behavior
+
+Registered users may post using their account identity or choose anonymous display.
+
+The backend derives the account from the verified JWT and loads the approved display identity from the existing User record. It ignores body-supplied user IDs and trusted author names.
+
+Named submissions retain the authenticated account association and use the account display identity. Anonymous registered submissions retain their private ownership association for authorization while hiding that identity from public output.
+
+Registered owners may edit or delete their own reflections where the existing workflow permits it. Another registered user cannot edit or delete a reflection they do not own.
+
+### Public Display and Moderation
+
+Public reflection queries now return only reflections that are:
+
+- `APPROVED`;
+- not deleted; and
+- joined to a Song whose current status is `PUBLISHED`.
+
+This means that archiving or unpublishing a Song also removes its reflections from public results without destroying the reflection records.
+
+The moderation lifecycle supports `PENDING`, `APPROVED`, `FLAGGED`, and `REJECTED`. Creator moderation routes remain protected by the existing creator authentication and authorization middleware. Non-creators cannot approve, reject, flag, or perform creator-only deletion.
+
+### Backend Routes Changed
+
+The existing reflection routes were repaired rather than replaced:
+
+- reflection creation now requires a valid published Song and always stores `PENDING`;
+- public reflection listing joins against published Songs and excludes pending, rejected, flagged, deleted, and unpublished-Song records;
+- Song-filtered public queries safely validate the requested Song;
+- registered identity is derived from JWT authentication;
+- creator moderation supports explicit rejection while preserving approve, flag, and delete behavior;
+- invalid supplied authentication tokens are rejected instead of being treated as guest requests.
+
+### Frontend Changes
+
+- Reflection Wall fetches published Song choices from the backend.
+- A valid `song_id` query parameter preselects its published Song.
+- Invalid or unavailable Song context is shown safely.
+- Guest and registered submission flows preserve their intended identity choices.
+- Successful submissions clearly state that moderation is required.
+- Pending submissions are not optimistically displayed as public approved reflections.
+- Song Experience links to Reflection Wall with the real Song ID.
+- Creator moderation views include the rejected state and reject action.
+- Loading, empty, error, and submission-success states remain integrated with the existing design.
+
+### Database Changes
+
+A safe migration was added to extend the reflection status constraint with `REJECTED` and add an index supporting Song/status/date reflection queries:
+
+- `backend/migrations/006_reflection_published_song_and_rejection.sql`
+
+The initial schema was also updated so a newly reset development database receives the same valid status set. No destructive synchronization or `force: true` behavior was introduced.
+
+### Files Modified
+
+- `backend/migrations/001_initial_schema.sql`
+- `backend/migrations/006_reflection_published_song_and_rejection.sql`
+- `backend/models/Reflection.js`
+- `backend/routes/reflections.js`
+- `backend/tests/reflections.test.js`
+- `frontend/src/App.test.jsx`
+- `frontend/src/pages/ReflectionWall.jsx`
+- `frontend/src/pages/SongExperience.jsx`
+- `frontend/src/services/reflectionService.js`
+- existing creator reflection-moderation components and pages for rejected-state support
+- `Creator_workflow.md`
+
+### Tests Added and Updated
+
+Backend tests prove that:
+
+- guest anonymous submission succeeds and starts `PENDING`;
+- a guest cannot spoof `userId`;
+- a registered named submission uses JWT identity and starts `PENDING`;
+- a registered anonymous submission hides public identity and starts `PENDING`;
+- unpublished and unknown Song submissions are rejected;
+- public listing excludes reflections belonging to unpublished Songs;
+- public listing excludes pending, rejected, deleted, and otherwise unapproved reflections;
+- another user cannot edit or delete an owner's reflection;
+- an owner can edit or delete where allowed;
+- creator moderation is authorized;
+- non-creator moderation is rejected.
+
+Frontend coverage verifies that Song Experience preserves the real Song ID in the Reflection Wall deep link.
+
+### Verification Performed
+
+- Complete backend Jest suite: four suites and forty-four tests passed.
+- Complete frontend Vitest suite: two files and sixteen tests passed.
+- Targeted backend ESLint passed.
+- Targeted frontend ESLint passed.
+
+### Manual Testing
+
+1. Apply migration `006_reflection_published_song_and_rejection.sql` to an existing database. A freshly reset database using the initial schema already includes the updated status constraint.
+2. Publish one Song and leave another Song in `DRAFT` or `READY`.
+3. Open the published Song Experience and choose the Reflection action. Confirm that Reflection Wall opens with the real Song selected.
+4. Submit as a guest. Confirm the success message says the reflection is awaiting moderation and that it does not appear publicly yet.
+5. Submit both a named and anonymous reflection as a registered user. Confirm both remain pending and neither appears publicly.
+6. Sign in as a creator and approve one pending reflection. Confirm it now appears on the public wall.
+7. Reject or flag another reflection and confirm it remains absent publicly.
+8. Unpublish or archive the Song and confirm its previously approved reflections disappear from public queries.
+9. Try another user's edit/delete route and confirm it is rejected.
+10. Manually open Reflection Wall with an invalid or unpublished `song_id` and confirm the safe unavailable state.
+
+### Final Outcome
+
+Reflection Wall is now part of the same published-Song source of truth as the other public experiences. Song selection and deep-linking use real database IDs, public queries cannot leak unpublished-Song content, and identity comes from authentication rather than client claims.
+
+Most importantly, every reflection now enters the same moderation queue in `PENDING`. Guests and registered users receive consistent treatment, and only an authorized creator moderation action can make a reflection publicly visible.
+
+### Remaining Work
+
+- Apply migration 006 in any existing environment that predates this phase.
+- Guest reflections intentionally have no invented edit/delete ownership mechanism.
+- Anonymous registered reflections still retain a private user association for secure ownership checks; public responses must continue hiding that identity.
+- Broader final cleanup and end-to-end deployment verification remain outside Phase 7.
+
+### Lesson
+
+Authentication and moderation answer different questions. Authentication establishes private ownership, while moderation determines whether content is suitable for public display. Requiring every submission to begin as `PENDING` keeps that boundary consistent for guests and registered users alike.

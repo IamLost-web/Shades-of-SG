@@ -150,6 +150,7 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'Start Trivia' })).toHaveAttribute('href', '/songs/published-42/trivia')
     expect(screen.getByRole('link', { name: 'Open Playground' })).toHaveAttribute('href', '/songs/published-42/playground')
     expect(screen.getByRole('link', { name: 'Play Rhythm' })).toHaveAttribute('href', '/game/published-42')
+    expect(screen.getByRole('link', { name: 'Share a Reflection' })).toHaveAttribute('href', '/reflections?song_id=published-42')
   })
 
   it('lists only playable published Songs in Rhythm Hub using covers and real ids', async () => {
@@ -166,5 +167,18 @@ describe('App', () => {
     expect(screen.getByAltText('Playable Published Song cover')).toHaveAttribute('src', 'https://media.example/rhythm.jpg')
     expect(screen.getByRole('link', { name: 'Play Song' })).toHaveAttribute('href', '/game/playable-1')
     expect(screen.queryByText('Unplayable Song')).not.toBeInTheDocument()
+  })
+
+  it('preselects a published Song from the Reflection Wall deep link', async () => {
+    window.history.pushState({}, '', '/reflections?song_id=11111111-1111-4111-8111-111111111111')
+    vi.stubGlobal('fetch', vi.fn(async (url) => ({
+      json: async () => String(url).includes('/reflections')
+        ? { reflections: [] }
+        : { songs: [{ id: '11111111-1111-4111-8111-111111111111', status: 'PUBLISHED', title: 'Deep Link Song' }] },
+      ok: true, status: 200,
+    })))
+    render(<AuthProvider><App /></AuthProvider>)
+    expect(await screen.findByDisplayValue('Deep Link Song')).toBeInTheDocument()
+    expect(screen.queryByText(/requested Song is unavailable/i)).not.toBeInTheDocument()
   })
 })

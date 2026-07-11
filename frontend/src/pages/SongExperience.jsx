@@ -22,7 +22,7 @@ export default function SongExperience() {
       <SectionCard title="Song Media">{song.videoUrl ? <video className="video-frame" controls playsInline poster={song.coverImageUrl || undefined} src={song.videoUrl} /> : song.coverImageUrl ? <img alt={`${song.title} cover`} className="video-frame" src={song.coverImageUrl} /> : <p>Video and cover media are unavailable.</p>}</SectionCard>
       <SectionCard title="Song Metadata"><dl className="detail-list"><div><dt>Artist</dt><dd>{song.artist || 'Unavailable'}</dd></div><div><dt>Theme</dt><dd>{song.theme || 'Unavailable'}</dd></div><div><dt>Languages</dt><dd>{(song.languages || []).join(', ') || 'Unavailable'}</dd></div></dl></SectionCard>
       <SectionCard title="Cultural Summary"><p>{song.description || 'A cultural summary is not available.'}</p></SectionCard>
-      <SectionCard title="Explore This Song"><div className="button-row"><Link className="inline-link" to={`/songs/${id}/playground`}>Open Playground</Link><Link className="inline-link" to={`/songs/${id}/trivia`}>Start Trivia</Link><Link className="inline-link" to={`/game/${id}`}>Play Rhythm</Link></div></SectionCard>
+      <SectionCard title="Explore This Song"><div className="button-row"><Link className="inline-link" to={`/songs/${id}/playground`}>Open Playground</Link><Link className="inline-link" to={`/songs/${id}/trivia`}>Start Trivia</Link><Link className="inline-link" to={`/game/${id}`}>Play Rhythm</Link><Link className="inline-link" to={`/reflections?song_id=${encodeURIComponent(id)}`}>Share a Reflection</Link></div></SectionCard>
     </section>
   </div>
 }

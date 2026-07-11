@@ -89,7 +89,7 @@ create table if not exists reflections (
     guest_submission boolean not null default false,
     content text not null,
     tags jsonb not null default '[]'::jsonb,
-    status varchar(32) not null default 'PENDING' check (status in ('PENDING', 'APPROVED', 'FLAGGED')),
+    status varchar(32) not null default 'PENDING' check (status in ('PENDING', 'APPROVED', 'FLAGGED', 'REJECTED')),
     moderated_by uuid references users(id) on delete set null,
     moderated_at timestamptz,
     moderator_note text,

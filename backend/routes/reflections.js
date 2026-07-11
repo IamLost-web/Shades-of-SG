@@ -77,7 +77,7 @@ function reflectionIncludes({ includeModerator = false, publishedOnly = false } 
         model: Song,
         as: 'song',
         attributes: ['id', 'title'],
-        ...(publishedOnly ? { required: true, where: { status: 'PUBLISHED' } } : {}),
+        ...(publishedOnly ? { required: true, where: { creatorId: { [Op.ne]: null }, status: 'PUBLISHED' } } : {}),
     }];
 
     if (includeModerator) {
@@ -108,7 +108,7 @@ async function validateInput(body) {
     }
 
     if (!UUID_PATTERN.test(songId)) return { error: 'Please choose a valid published song.' };
-    if (!(await Song.findOne({ where: { id: songId, status: 'PUBLISHED' }, attributes: ['id'] }))) return { error: 'Please choose a valid published song.' };
+    if (!(await Song.findOne({ where: { creatorId: { [Op.ne]: null }, id: songId, status: 'PUBLISHED' }, attributes: ['id'] }))) return { error: 'Please choose a valid published song.' };
     if (Object.prototype.hasOwnProperty.call(body, 'isAnonymous') && typeof body.isAnonymous !== 'boolean') return { error: 'isAnonymous must be true or false.' };
     if (Object.prototype.hasOwnProperty.call(body, 'displayMode') && !['PROFILE', 'ANONYMOUS'].includes(body.displayMode)) return { error: 'displayMode must be PROFILE or ANONYMOUS.' };
     const submittedTags = getSubmittedTags(body);
@@ -242,7 +242,7 @@ router.get('/', optionalAuth, async (req, res, next) => {
 
         if (songId) {
             if (!UUID_PATTERN.test(songId)) return res.status(400).json({ message: 'songId must be a valid published song id.' });
-            const publishedSong = await Song.findOne({ where: { id: songId, status: 'PUBLISHED' }, attributes: ['id'] });
+            const publishedSong = await Song.findOne({ where: { creatorId: { [Op.ne]: null }, id: songId, status: 'PUBLISHED' }, attributes: ['id'] });
             if (!publishedSong) return res.status(404).json({ message: 'Published song not found.' });
             where.songId = songId;
         }

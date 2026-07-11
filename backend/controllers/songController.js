@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { Op } = require('sequelize');
 const { Song, GenerationJob, SceneSegment, GeneratedFrame } = require('../models');
 const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
@@ -69,7 +70,7 @@ async function findOwnedSong(req) {
 
 async function listPublicSongs(req, res, next) {
     try {
-        const where = { status: 'PUBLISHED' };
+        const where = { creatorId: { [Op.ne]: null }, status: 'PUBLISHED' };
         if (req.query.theme) where.theme = req.query.theme;
         const songs = await Song.findAll({ where, order: [['publishedDate', 'DESC'], ['title', 'ASC']] });
         const search = String(req.query.search || '').trim().toLowerCase();
@@ -90,7 +91,7 @@ async function listPublicSongs(req, res, next) {
 
 async function getPublicSong(req, res, next) {
     try {
-        const song = await Song.findOne({ where: { id: req.params.id, status: 'PUBLISHED' } });
+        const song = await Song.findOne({ where: { creatorId: { [Op.ne]: null }, id: req.params.id, status: 'PUBLISHED' } });
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         return res.json({ song });
     } catch (error) { return next(error); }

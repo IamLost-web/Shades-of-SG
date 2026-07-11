@@ -1212,3 +1212,126 @@ Most importantly, every reflection now enters the same moderation queue in `PEND
 ### Lesson
 
 Authentication and moderation answer different questions. Authentication establishes private ownership, while moderation determines whether content is suitable for public display. Requiring every submission to begin as `PENDING` keeps that boundary consistent for guests and registered users alike.
+
+---
+
+## Phase 8 — Final Integration QA, Cleanup, and Deployment Readiness
+
+### Scope and outcome
+
+Phase 8 audited the integrated creator, public, guest, registered-user, and creator-moderation workflows without adding unrelated features. The existing automated integration coverage remained green, production mock data was removed from the remaining analytics page, deployment configuration was hardened, and the project documentation was aligned with the implemented system.
+
+The final reflection policy is explicit: guest, registered named, and registered anonymous submissions all start `PENDING` and require creator moderation.
+
+### Fixes made
+
+- Removed fabricated totals, weekly values, top-Song data, and completion rate from Total Plays. The page now honestly reports that a persisted play-event analytics source is unavailable.
+- Removed automatic creator seeding from backend startup. `npm run seed:creator` is now the only creator seed flow and never creates demo content.
+- Removed the insecure production token-secret fallback. Production requires `AUTH_TOKEN_SECRET` or `JWT_SECRET`; the fallback remains development/test-only.
+- Added a test proving production token creation fails closed without a configured secret.
+- Changed clean PostgreSQL schema creation so `songs.creator_id` is non-null and uses a restrictive user foreign key.
+- Preserved the safe current-database policy: migration 004 does not force NOT NULL while unknown legacy orphan rows may exist.
+- Quarantined legacy ownerless Songs from public Song listing/detail, Rhythm score submission, Reflection submission, and public Reflection joins.
+- Updated root/backend/frontend environment examples and deployment documentation.
+- Kept `sequelize.sync()` non-destructive; no `force: true` production behavior was introduced.
+
+### Database and migration review
+
+Static review confirms migrations 001–006 are ordered so the initial legacy-compatible schema is progressively upgraded to the final Song, generation, and reflection lifecycles. Migrations 004–006 use additive columns, controlled constraint replacement, data-preserving status conversion, and `IF NOT EXISTS` indexes.
+
+Required indexes are present in migration SQL:
+
+- `songs_creator_status_updated_at_idx`;
+- `songs_public_published_date_idx`;
+- `generation_jobs_one_active_per_song_idx`;
+- `reflections_song_status_created_at_idx`.
+
+Legacy `songs.language` and `songs.lyrics` remain intentionally. Migration 004 copies them into `languages` and `raw_lyrics`; current application writes use the new fields. `play_minutes` and `missing_fields` are not persisted columns; publish readiness is derived at request time.
+
+No PostgreSQL `DATABASE_URL` was available in this workspace, so a real clean Supabase/PostgreSQL execution of migrations 001–006 could not be performed. This remains a deployment checklist item and is not claimed as executed.
+
+The local SQLite integrity audit found no orphan generation jobs, scene segments, generated frames, reflections, or GameScores. It did find two legacy published Songs with null creator ownership: `bye` and `hi`. They were not deleted because Phase 8 did not authorize destructive data cleanup. Backend public filters now quarantine them; they should be manually reviewed and assigned or deleted before enforcing NOT NULL on that existing database.
+
+### Mock and placeholder audit
+
+No normal production code references `pageData`, `sampleSongs`, `songData`, `mockSongs`, `demo-song`, `Song #1`, `Song #2`, dummy metadata, fake weekly charts, or direct localhost API URLs.
+
+The only production-code search result is the opt-in `seed:mock` package command and its development script. It is not called by startup or required by any application route. `seed:creator` creates only one creator and no Song, job, reflection, score, segment, frame, or demo record.
+
+Intentional placeholders:
+
+- `PLACEHOLDER_VIDEO_URL` remains an environment-controlled temporary MP4 path and API responses label its use temporary.
+- `frontend/public/videos/placeholder-generation.mp4` may host that temporary asset on Vercel.
+- The older `exploding-kittens-placeholder.mp4` is not referenced by production React code.
+- Rhythm charts remain procedural and duration-derived.
+- Missing trivia, instrument, lesson, or beatmap content displays an honest unavailable state.
+
+### Security and configuration audit
+
+- Frontend API requests use the shared `API_URL` based on `VITE_API_URL`.
+- Backend CORS uses `FRONTEND_URL`, with localhost retained for local development.
+- Production authentication has no default signing secret.
+- Creator routes use existing creator authentication and ownership lookup.
+- Score and reflection identity comes from JWT, not body-supplied user IDs.
+- Public Song endpoints require both published status and valid creator ownership.
+- Production 500 responses return `Internal server error` without stack traces.
+- Audio uploads allow MP3/WAV up to 50 MB; cover uploads allow JPG/PNG/WebP up to 10 MB.
+- Environment examples contain replacement values only; repository search found no committed real Cloudinary secret or creator seed password.
+
+### Exact automated verification
+
+- `npm run test --prefix backend`: 4 suites passed, 45 tests passed.
+- `npm run test --prefix frontend`: 2 files passed, 16 tests passed.
+- `npm test`: exit 0; backend 4/4 suites and 45/45 tests, frontend 2/2 files and 16/16 tests.
+- `npm run lint`: exit 0; root backend ESLint and frontend ESLint passed with no reported errors.
+- `npm run build --prefix frontend`: exit 0; Vite 8.0.14 transformed 1,880 modules and completed the production build.
+- `git diff --check`: exit 0; only Git line-ending conversion warnings were reported.
+
+### Documentation updated
+
+- `README.md` now documents lifecycle rules, creator/public/score/reflection behavior, migration order, local setup, environment variables, Render/Vercel/Supabase/Cloudinary deployment, and known limitations.
+- `Project Details/HIGH_LEVEL_DESIGN.md` now begins with an authoritative integration note correcting its historical lifecycle and publication descriptions.
+- `.env.example`, `backend/.env.example`, and `frontend/.env.example` now clarify local and deployed API, CORS, secret, and temporary video settings.
+- `Creator_workflow.md` contains this Phase 8 QA record.
+
+### Manual production QA checklist
+
+1. Apply migrations 001–006 to a clean temporary PostgreSQL database and inspect the four required indexes.
+2. Seed one creator with `npm run seed:creator`, rerun it, and confirm the existing account is unchanged.
+3. Complete Studio draft persistence, cover replacement, audio/YouTube ingestion, lyric extraction/editing, same-ID generation, READY completion, explicit publish, unpublish, republish, archive, and non-generating delete.
+4. Compare Song row count before and after generation to confirm no duplicate.
+5. Verify a second creator cannot read, edit, generate, publish, archive, or delete the first creator's Song.
+6. Verify landing/library/search/filter/Song Experience show only published Songs and preserve the UUID into learning, trivia, playground, rhythm, and reflection routes.
+7. Play as guest and confirm no GameScore row; play as registered and confirm JWT ownership and validation.
+8. Submit guest, registered named, and registered anonymous reflections and confirm all remain pending.
+9. Approve, flag, reject, and delete as creator; verify moderator notes persist and non-creators are denied.
+10. Unpublish/archive an approved reflection's Song and confirm the reflection disappears publicly.
+11. Verify deployed Vercel media, Render CORS, Cloudinary upload/replacement/cleanup, and production error responses.
+
+### Files changed in Phase 8
+
+- `.env.example`
+- `README.md`
+- `Project Details/HIGH_LEVEL_DESIGN.md`
+- `Creator_workflow.md`
+- `backend/.env.example`
+- `backend/controllers/songController.js`
+- `backend/migrations/001_initial_schema.sql`
+- `backend/routes/reflections.js`
+- `backend/routes/scores.js`
+- `backend/server.js`
+- `backend/services/authService.js`
+- `backend/tests/health.test.js`
+- `frontend/.env.example`
+- `frontend/src/pages/TotalPlays.jsx`
+
+### Known limitations and unresolved items
+
+- Clean PostgreSQL migration execution and live Render/Vercel/Supabase/Cloudinary end-to-end testing require deployed credentials and services and were not available locally.
+- The two legacy null-owner SQLite Songs require an explicit data decision; they are quarantined but not deleted.
+- The final AI MP4 pipeline, authored beatmaps, complete play analytics, and real Song-specific trivia/instrument/lesson content remain incomplete.
+- `seed:mock` and the older unused placeholder MP4 remain development/history assets only and are not part of normal flow.
+
+### Lesson
+
+Deployment readiness is not just a green build. It requires fail-closed production secrets, explicit seed behavior, honest unavailable states, ownership at both write and read boundaries, and documentation that distinguishes verified local behavior from checks that still require real infrastructure.

@@ -21,7 +21,7 @@ create table if not exists sessions (
 
 create table if not exists songs (
     id uuid primary key default gen_random_uuid(),
-    creator_id uuid references users(id) on delete set null,
+    creator_id uuid not null references users(id) on delete restrict,
     title varchar(255) not null,
     artist varchar(255),
     theme varchar(255),

@@ -1,4 +1,5 @@
 const express = require('express');
+const { Op } = require('sequelize');
 const { GameScore, Song, User } = require('../models');
 const { optionalAuth } = require('../middleware/auth');
 
@@ -26,7 +27,7 @@ router.post('/', optionalAuth, async (req, res, next) => {
         const theoreticalMaximum = (totalNotes * 1000) + (12 * totalNotes * (totalNotes + 1) / 2);
         if (score > theoreticalMaximum) return res.status(400).json({ message: 'score exceeds the maximum possible value for this chart' });
 
-        const song = await Song.findOne({ where: { id: songId, status: 'PUBLISHED' }, attributes: ['id'] });
+        const song = await Song.findOne({ where: { creatorId: { [Op.ne]: null }, id: songId, status: 'PUBLISHED' }, attributes: ['id'] });
         if (!song) return res.status(404).json({ message: 'Published song not found.' });
 
         const suppliedAuthorization = Boolean(req.get('authorization'));

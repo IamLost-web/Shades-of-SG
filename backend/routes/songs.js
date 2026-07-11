@@ -26,6 +26,7 @@ const coverUpload = multer({
 });
 
 router.get('/creator', requireCreator, songController.listCreatorSongs);
+router.get('/creator/dashboard/summary', requireCreator, songController.getCreatorDashboardSummary);
 router.get('/creator/:id', requireCreator, songController.getCreatorSong);
 router.post('/extract-audio', requireCreator, songController.extractAudio);
 router.post('/', requireCreator, upload.single('audioFile'), songController.createSong);
@@ -35,6 +36,8 @@ router.post('/:id/cover', requireCreator, coverUpload.single('coverImage'), song
 router.get('/:id/readiness', requireCreator, songController.getPublishReadiness);
 router.put('/:id/publish', requireCreator, songController.publishSong);
 router.put('/:id/unpublish', requireCreator, songController.unpublishSong);
+router.put('/:id/archive', requireCreator, songController.archiveSong);
+router.delete('/:id', requireCreator, songController.deleteSong);
 router.get('/', songController.listPublicSongs);
 router.get('/:id', songController.getPublicSong);
 

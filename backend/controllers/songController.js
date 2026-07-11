@@ -1,6 +1,6 @@
 const fs = require('fs');
 const { Op } = require('sequelize');
-const { Song, GenerationJob } = require('../models');
+const { Song, GenerationJob, SceneSegment, GeneratedFrame } = require('../models');
 const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
@@ -94,8 +94,47 @@ async function listCreatorSongs(req, res, next) {
             if (!SONG_STATUSES.has(status)) return res.status(400).json({ message: 'Invalid song status.' });
             where.status = status;
         }
-        const songs = await Song.findAll({ where, order: [['updatedAt', 'DESC']] });
-        return res.json({ songs });
+        const songs = await Song.findAll({
+            where,
+            include: [{ model: GenerationJob, as: 'generationJobs', required: false }],
+            order: [['updatedAt', 'DESC']],
+        });
+        return res.json({ songs: songs.map(serializeCreatorSong) });
+    } catch (error) { return next(error); }
+}
+
+function serializeCreatorSong(song) {
+    const value = song.get({ plain: true });
+    const jobs = [...(value.generationJobs || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const latestGenerationJob = jobs[0] || null;
+    delete value.generationJobs;
+    const missing = publishValidation(song);
+    if (!latestGenerationJob || latestGenerationJob.status !== 'COMPLETED') missing.push('completed generation job');
+    return { ...value, latestGenerationJob, publishReady: missing.length === 0, publishMissing: missing };
+}
+
+async function getCreatorDashboardSummary(req, res, next) {
+    try {
+        const creatorId = req.authUserRecord.id;
+        const statuses = [...SONG_STATUSES];
+        const [counts, recentSongs, recentJobs] = await Promise.all([
+            Promise.all(statuses.map(async (status) => [status, await Song.count({ where: { creatorId, status } })])),
+            Song.findAll({
+                where: { creatorId }, limit: 5, order: [['updatedAt', 'DESC']],
+                include: [{ model: GenerationJob, as: 'generationJobs', required: false }],
+            }),
+            GenerationJob.findAll({
+                include: [{ model: Song, as: 'song', attributes: ['id', 'title', 'artist'], where: { creatorId } }],
+                limit: 5, order: [['createdAt', 'DESC']],
+            }),
+        ]);
+        const byStatus = Object.fromEntries(counts);
+        return res.json({
+            counts: { total: Object.values(byStatus).reduce((sum, count) => sum + count, 0), ...byStatus },
+            recentSongs: recentSongs.map(serializeCreatorSong),
+            generationJobs: recentJobs,
+            playAnalyticsAvailable: false,
+        });
     } catch (error) { return next(error); }
 }
 
@@ -212,6 +251,38 @@ async function unpublishSong(req, res, next) {
     } catch (error) { return next(error); }
 }
 
+async function archiveSong(req, res, next) {
+    try {
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        if (song.status === 'GENERATING') return res.status(409).json({ message: 'A generating song cannot be archived.' });
+        await song.update({ status: 'ARCHIVED', publishedDate: null });
+        return res.json({ song });
+    } catch (error) { return next(error); }
+}
+
+async function deleteSong(req, res, next) {
+    try {
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        if (song.status === 'GENERATING') return res.status(409).json({ message: 'A generating song cannot be deleted.' });
+        const segments = await SceneSegment.findAll({
+            where: { songId: song.id },
+            include: [{ model: GeneratedFrame, as: 'generatedFrames', required: false }],
+        });
+        const assets = [
+            [song.coverImagePublicId, 'image'],
+            [song.audioPublicId, 'video'],
+            [song.videoPublicId, 'video'],
+            ...segments.flatMap((segment) => segment.generatedFrames.map((frame) => [frame.cloudinaryId, 'image'])),
+        ].filter(([publicId]) => publicId);
+        await song.destroy();
+        const cleanup = await Promise.allSettled(assets.map(([publicId, type]) => cloudinaryService.deleteAsset(publicId, type)));
+        const cleanupFailures = cleanup.filter((result) => result.status === 'rejected').length;
+        return res.json({ deleted: true, id: song.id, cleanupFailures });
+    } catch (error) { return next(error); }
+}
+
 async function extractAudio(req, res, next) {
     try {
         if (!req.body.youtubeUrl) return res.status(400).json({ message: 'YouTube URL is required.' });
@@ -223,4 +294,4 @@ async function extractAudio(req, res, next) {
     } catch (error) { return next(error); }
 }
 
-module.exports = { createSong, extractAudio, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio };
+module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio };

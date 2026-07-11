@@ -8,9 +8,30 @@ const { assembleVideo } = require('../services/videoAssembler')
 const completeGeneration = async (jobId) => {
   const job = await GenerationJob.findByPk(jobId)
   if (!job) throw new Error(`Job ${jobId} not found in database.`)
+  const song = await Song.findByPk(job.songId)
+  if (!song) throw new Error(`Song ${job.songId} not found in database.`)
+  if (!song.videoUrl) throw new Error('Generation cannot complete without a video URL.')
   await job.update({ status: 'COMPLETED', errorMessage: null, completedAt: new Date() })
-  await Song.update({ status: 'READY' }, { where: { id: job.songId } })
-  return job
+  await song.update({ status: 'READY' })
+  return { job, song }
+}
+
+const failGeneration = async (jobId, error) => {
+  const job = await GenerationJob.findByPk(jobId)
+  if (!job) return null
+  await job.update({ status: 'FAILED', errorMessage: error?.message || String(error || 'Generation failed.') })
+  const song = await Song.findByPk(job.songId)
+  if (song?.status === 'GENERATING') await song.update({ status: song.videoUrl ? 'READY' : 'DRAFT' })
+  return { job, song }
+}
+
+const usePlaceholderVideo = async (songId) => {
+  const placeholderVideoUrl = process.env.PLACEHOLDER_VIDEO_URL?.trim()
+  if (!placeholderVideoUrl) return false
+  const song = await Song.findByPk(songId)
+  if (!song) throw new Error(`Song ${songId} not found in database.`)
+  await song.update({ videoUrl: placeholderVideoUrl, videoPublicId: null })
+  return true
 }
 
 // ==========================================
@@ -75,6 +96,15 @@ const startGeneration = async (req, res, next) => {
       throw error
     }
 
+    const missing = []
+    if (!song.audioUrl) missing.push('audioUrl')
+    if (!song.rawLyrics?.trim()) missing.push('rawLyrics')
+    if (missing.length) {
+      const error = new Error(`Song is missing generation requirements: ${missing.join(', ')}.`)
+      error.statusCode = 400
+      throw error
+    }
+
     const activeJob = await GenerationJob.findOne({
       where: { songId, status: ['QUEUED', 'PROCESSING'] },
     })
@@ -85,14 +115,20 @@ const startGeneration = async (req, res, next) => {
     }
 
     // 1. Create the tracking ticket
-    const job = await GenerationJob.create({
-      songId,
-      status: 'QUEUED',
-    })
+    let job
+    try {
+      job = await GenerationJob.create({ songId, status: 'QUEUED' })
+    } catch (error) {
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        error.statusCode = 409
+        error.message = 'This song already has an active generation job.'
+      }
+      throw error
+    }
 
     // 2. Fire the background worker WITHOUT awaiting it
     await song.update({ status: 'GENERATING' })
-    runGenerationPipeline(job.id).catch(console.error)
+    if (process.env.NODE_ENV !== 'test') runGenerationPipeline(job.id).catch(console.error)
 
     // 3. Immediately return the ticket ID to the frontend
     return res.status(202).json({
@@ -116,7 +152,7 @@ const getGenerationStatus = async (req, res, next) => {
           model: Song, 
           as: 'song', 
           where: { creatorId: req.authUserRecord.id },
-          attributes: ['title', 'artist', 'audioUrl'],
+          attributes: ['id', 'title', 'artist', 'audioUrl', 'videoUrl', 'videoPublicId', 'status'],
           include: [
             {
               model: SceneSegment,
@@ -140,9 +176,12 @@ const getGenerationStatus = async (req, res, next) => {
       throw error
     }
 
+    const data = job.get({ plain: true })
+    const placeholderVideoUrl = process.env.PLACEHOLDER_VIDEO_URL?.trim()
+    data.videoIsTemporary = Boolean(placeholderVideoUrl && data.song?.videoUrl === placeholderVideoUrl)
     return res.json({
       success: true,
-      data: job,
+      data,
     })
   } catch (error) {
     next(error)
@@ -152,7 +191,7 @@ const getGenerationStatus = async (req, res, next) => {
 const getAllJobs = async (req, res, next) => {
   try {
     const jobs = await GenerationJob.findAll({
-      include: [{ model: Song, as: 'song', attributes: ['title', 'artist'], where: { creatorId: req.authUserRecord.id } }],
+      include: [{ model: Song, as: 'song', attributes: ['id', 'title', 'artist', 'status', 'videoUrl'], where: { creatorId: req.authUserRecord.id } }],
       order: [['createdAt', 'DESC']],
     })
 
@@ -183,8 +222,13 @@ const runGenerationPipeline = async (jobId) => {
     console.log(`[Phase 3] Generating Image Frames...`)
     await generateFrames(jobId, job.songId)
 
-    console.log(`[Phase 4] Assembling Video with FFmpeg...`)
-    await assembleVideo(jobId, job.songId)
+    const placeholderApplied = await usePlaceholderVideo(job.songId)
+    if (placeholderApplied) {
+      console.warn(`[Temporary Video] Job ${jobId} is using configured PLACEHOLDER_VIDEO_URL.`)
+    } else {
+      console.log(`[Phase 4] Assembling Video with FFmpeg...`)
+      await assembleVideo(jobId, job.songId)
+    }
 
     // Update DB on Success
     await completeGeneration(job.id)
@@ -198,20 +242,7 @@ const runGenerationPipeline = async (jobId) => {
     // ERROR BOUNDARY
     try {
       if (jobId) {
-        const failedJob = await GenerationJob.findByPk(jobId)
-        await GenerationJob.update(
-          {
-            status: 'FAILED',
-            errorMessage: error.message || 'An unknown error occurred during generation.',
-          },
-          { where: { id: jobId } }
-        )
-        if (failedJob) {
-          const failedSong = await Song.findByPk(failedJob.songId)
-          if (failedSong?.status === 'GENERATING') {
-            await failedSong.update({ status: failedSong.videoUrl ? 'READY' : 'DRAFT' })
-          }
-        }
+        await failGeneration(jobId, error)
         await cleanupJobFiles(jobId) // Wipe broken files so they don't clog the server
       }
     } catch (fallbackError) {
@@ -226,4 +257,6 @@ module.exports = {
   getAllJobs,
   runGenerationPipeline,
   completeGeneration,
+  failGeneration,
+  usePlaceholderVideo,
 }

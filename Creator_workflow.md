@@ -405,3 +405,337 @@ Cover images can be previewed, uploaded, and replaced through authenticated owne
 A persisted draft needs both durable data and durable identity. Saving fields without retaining the returned Song ID still produces fragmented workflows because media uploads and generation cannot know which record they belong to. Route-based identity solves refresh recovery, future edit links, and generation handoff with one consistent mechanism.
 
 Readiness should be explained in the frontend but decided in the backend. This keeps the interface responsive and understandable while ensuring that stale UI state cannot bypass ownership, lifecycle, media, or generation requirements.
+
+---
+
+## Phase 3 — Generation Around an Existing Studio Song
+
+### Date
+
+11 July 2026
+
+### User Request
+
+Phase 3 was limited to unifying generation around the Song already created and edited in Studio. Generation Tasks could monitor jobs or start generation for an eligible owned Song, but it could no longer contain a second song-creation workflow or collect duplicate title, artist, lyrics, theme, description, media, or dummy metadata.
+
+The required success path was:
+
+`Studio draft → start generation with the same Song ID → monitor job → complete job → same Song becomes READY`
+
+No generation action could create another Song or publish automatically. The phase also required creator-scoped job access, exact job status names, active polling, duplicate-job protection, retry-safe failures, and clearly isolated temporary placeholder-video handling.
+
+### Audit and Decisions
+
+Codex reviewed the generation controller, routes, scene-planning, frame-generation and video-assembly services, Generation Tasks, Generation Progress, KindMaster Editor, the shared frontend service layer, environment examples, and lifecycle tests.
+
+The backend already accepted a Song ID and performed a basic active-job check, but several integration gaps remained:
+
+- Generation Tasks still contained a complete secondary song form.
+- That form collected duplicate metadata and called `POST /api/songs` before starting generation.
+- It submitted dummy theme and description values.
+- Generation pages called generation endpoints independently instead of consistently using the authenticated shared service.
+- frontend labels still mixed older states such as `NOT_STARTED` and `IN_PROGRESS` with the new backend lifecycle.
+- the active-job check was not protected against simultaneous requests at the database level.
+- placeholder media was still represented elsewhere as a frontend hardcoded path rather than an explicitly configured backend generation limitation.
+
+The implementation kept Studio as the primary place to create, upload, transcribe, edit, save, and initiate generation. Generation Tasks retains only a secondary convenience action for selecting an already eligible Song and starting a job with its existing UUID.
+
+### AI Output
+
+The secondary creation form was removed from Generation Tasks. The page no longer asks for or submits title, artist, lyrics, theme, description, YouTube URL, uploaded audio, extracted audio, or dummy values. It never calls the Song creation endpoint.
+
+Generation Tasks now loads the authenticated creator's existing Songs and filters them to records that:
+
+- are `DRAFT` or `READY`;
+- have persisted audio;
+- have persisted `rawLyrics`.
+
+The creator chooses one eligible Song and the page sends only its ID to `POST /api/generation/start`. A prominent Create in Studio action reinforces that Studio owns creation and editing.
+
+The backend independently validates the same generation prerequisites. It verifies creator ownership, accepts only `DRAFT` or `READY`, requires audio and raw lyrics, and rejects a Song that already has a `QUEUED` or `PROCESSING` job. Starting generation creates one GenerationJob referencing the existing Song and changes that Song to `GENERATING`. It never calls `Song.create`.
+
+The asynchronous worker preserves the Phase 1 lifecycle:
+
+- new job: `QUEUED`;
+- worker begins: `PROCESSING`;
+- successful worker: `COMPLETED` and Song `READY`;
+- failed worker: `FAILED` and Song restored to `DRAFT` or `READY` as appropriate;
+- no worker path changes a Song to `PUBLISHED`.
+
+Completion now verifies that the Song has a video URL before marking the job completed. The existing real assembly path persists the Cloudinary video URL and public ID. Completion then marks the existing Song `READY` and leaves `publishedDate` null.
+
+Failure handling was centralised into a retry-safe helper. It records the job error, keeps the Song row, and restores a valid non-active Song status. A creator can start a later retry against the same Song after the failed job becomes terminal. A second request remains forbidden while any active job exists.
+
+Database-level duplicate protection was added with a partial unique index on `generation_jobs(song_id)` for `QUEUED` and `PROCESSING` jobs. This closes the race condition that could occur if two requests passed the controller lookup simultaneously. The controller check remains in place to return a clear HTTP 409 during ordinary duplicate attempts.
+
+Generation job list and detail queries remain creator-scoped by joining the job to an owned Song. Another creator cannot start generation for the Song, retrieve the job detail, or see the job in their list.
+
+The frontend shared `songService` gained authenticated methods for creator Songs, generation job lists, and generation job details. Generation Tasks, Generation Progress, and KindMaster Editor now use this configured API layer rather than constructing their own generation fetch calls.
+
+Generation Tasks polls every three seconds while a `QUEUED` or `PROCESSING` job exists. It shows exact backend states and displays failure messages. Generation Progress also polls while active, stops at `COMPLETED` or `FAILED`, distinguishes queued from processing, and shows the backend error when a job fails. The status badge was updated to the exact four-state GenerationJob lifecycle.
+
+### Placeholder-Video Handling
+
+Temporary video support was moved behind the backend environment value:
+
+```env
+PLACEHOLDER_VIDEO_URL=
+```
+
+When configured, the worker stores that URL on the existing Song instead of claiming to have produced the final AI MP4. It stores no `videoPublicId`, marks the Song `READY` only after completing the job, and returns `videoIsTemporary: true` in the creator job detail.
+
+Generation Progress explicitly says that the completed job used the configured temporary placeholder and should be reviewed before publishing. React contains no hardcoded generation placeholder URL and does not describe this path as a completed AI-generated video.
+
+When `PLACEHOLDER_VIDEO_URL` is empty, the existing scene planning, frame generation, FFmpeg assembly, Cloudinary upload, `videoUrl`, and `videoPublicId` flow remains active.
+
+For local development, the placeholder file may be stored at:
+
+```text
+frontend/public/videos/placeholder-generation.mp4
+```
+
+with:
+
+```env
+PLACEHOLDER_VIDEO_URL=http://localhost:5173/videos/placeholder-generation.mp4
+```
+
+In deployment, the backend environment should use the full deployed frontend URL. The setting belongs to the backend host because the generation worker reads it.
+
+### Routes Changed
+
+No new generation HTTP route was required. Existing routes were hardened and reused:
+
+- `POST /api/generation/start` — starts a job for an existing owned Song only.
+- `GET /api/generation` — returns creator-scoped jobs.
+- `GET /api/generation/:id/status` — returns creator-scoped detail, failure information, Song media, and temporary-video labeling.
+- `GET /api/songs/creator` — supplies existing eligible Songs to Generation Tasks.
+
+### Files Created
+
+- `backend/migrations/005_unique_active_generation_job.sql`
+
+### Files Modified
+
+- `backend/.env.example`
+- `backend/controllers/generationController.js`
+- `backend/routes/aiGeneration.js`
+- `backend/tests/songLifecycle.test.js`
+- `frontend/src/components/GenerationStatusBadge.jsx`
+- `frontend/src/pages/CreatorGenerationJobs.jsx`
+- `frontend/src/pages/GenerationProgress.jsx`
+- `frontend/src/pages/KindMasterEditor.jsx`
+- `frontend/src/services/songService.js`
+
+Dashboard, My Songs, public Songs Library, Rhythm Game, and Reflection Wall were not modified.
+
+### Tests Added
+
+Backend lifecycle coverage now proves that:
+
+- generation uses an existing Song ID;
+- starting generation does not increase the Song count;
+- duplicate active jobs are rejected;
+- only one active job is stored for a Song;
+- retry becomes available only after failure;
+- retry uses the same Song and creates no duplicate Song;
+- another creator cannot start generation;
+- another creator cannot retrieve the job detail;
+- another creator cannot see the job in their list;
+- failure records its error message;
+- failure preserves the Song row;
+- failure restores a retryable lifecycle state;
+- configured placeholder completion stores the video URL;
+- temporary placeholder completion stores no Cloudinary video public ID;
+- successful completion changes the Song to `READY`;
+- completion leaves `publishedDate` null and never publishes.
+
+### Verification Performed
+
+- Ran the complete backend Jest suite: four suites and twenty-four tests passed.
+- Ran the complete frontend Vitest suite: two files and ten tests passed.
+- Ran full backend ESLint; it passed.
+- Ran full frontend ESLint; it passed.
+- Ran the frontend production build; 1,880 modules transformed successfully.
+- Ran `git diff --check`; no whitespace errors were reported.
+- Searched Generation Tasks and the shared service for Song creation, dummy metadata, extraction-form remnants, and direct relative generation API calls; none remained.
+
+### My Review and Decisions
+
+I removed the duplicate form rather than trying to keep two creation paths synchronized. Two interfaces that can independently create a Song will eventually disagree about validation, ownership, media, lyrics, and ID handoff. Restricting Generation Tasks to existing records makes its purpose clear: orchestration and monitoring.
+
+I retained a start control in Generation Tasks because it is useful for retrying or processing an existing eligible draft, but Studio remains the preferred entry point. Both paths now perform the same safe operation with one Song ID.
+
+I added database-level duplicate protection because a controller query alone cannot prevent two simultaneous requests from both observing no active job. The partial unique index expresses the actual business rule without preventing historical completed and failed jobs.
+
+I treated placeholder completion as a configured operational fallback, not generated output. Returning a temporary-media flag allows the UI to be honest while preserving the required `READY` review stage and explicit publication gate.
+
+### Final Outcome
+
+The creator generation workflow now satisfies the target integration:
+
+`Studio draft → same Song ID starts generation → creator job appears and polls → job completes → same Song becomes READY`
+
+Generation Tasks creates no Song, collects no duplicate metadata, and submits no dummy data. The backend rejects duplicate active jobs, protects creator ownership, preserves Songs after failure, supports retry against the same record, and never publishes automatically.
+
+Configured placeholder videos remain isolated, backend-controlled, and visibly temporary. The real extraction, transcription, scene-planning, frame-generation, assembly, and Cloudinary paths remain available rather than being replaced by frontend simulation.
+
+### Remaining Work
+
+- Apply `005_unique_active_generation_job.sql` to PostgreSQL through the project migration process.
+- Replace the process-local fire-and-forget worker with a durable queue if production reliability requires restart recovery.
+- Decide whether retry scene segments should be versioned by GenerationJob instead of remaining Song-scoped.
+- Complete and validate the real final MP4 pipeline across the deployed environment.
+- Replace the global placeholder configuration with per-Song uploaded temporary MP4 management if creators need different placeholders.
+- Complete the KindMaster Editor only if it remains part of the approved product scope.
+- Integrate Dashboard, My Songs, and public consumers only in later approved phases.
+
+### Lesson
+
+Creation and generation are separate responsibilities joined by one durable ID. Studio owns the content record; generation owns processing attempts. Once that boundary is explicit, retries become additional jobs rather than additional Songs, monitoring becomes creator-scoped history, and publication remains a deliberate human decision after technical completion.
+
+Concurrency rules belong in the database as well as the controller. A friendly pre-check improves errors, but only a unique active-job constraint can guarantee that simultaneous requests do not violate the lifecycle.
+
+---
+
+## Phase 4 — Real Creator Songs and Dashboard Data
+
+### Date
+
+11 July 2026
+
+### User Request
+
+Phase 4 replaced production-facing mock data in My Songs and Dashboard with authenticated creator-scoped backend data. My Songs needed exact lifecycle counts, filters, real Song media and job status, and working edit, generation, publication, archive, and delete actions. Dashboard needed real counts, recent Songs, and recent generation jobs without fake play totals or weekly charts.
+
+The work was restricted from changing public Songs Library, Song Experience, Rhythm Game, or Reflection Wall. The completed work also needed to be recorded in this journal.
+
+### Audit and Decisions
+
+The audit confirmed that both creator pages were still sourced from `pageData.js`. My Songs displayed `Song #1` sample records, sample lyrics, initials, and hardcoded Draft/Published totals while archive and delete only changed local React state. Dashboard displayed fixed totals, fake weekly play minutes, and hardcoded generation jobs.
+
+The existing creator Song endpoint already enforced authentication and ownership, so it was enriched instead of duplicated. A single dashboard summary endpoint was added because it prevents the Dashboard from performing separate count, recent-Song, and recent-job requests.
+
+No trustworthy play-event or aggregate analytics source currently exists. The fake total and weekly chart were removed. Dashboard now states honestly that play analytics are unavailable.
+
+### AI Output
+
+The creator Song list now includes each owned Song's latest GenerationJob, publication readiness, and missing publication requirements. Counts and filters use the exact lifecycle values `DRAFT`, `GENERATING`, `READY`, `PUBLISHED`, and `ARCHIVED`.
+
+My Songs now loads real creator-owned Songs through the authenticated service. Each row shows the persisted cover image or a neutral No cover fallback, title, artist, lifecycle status, latest generation status, and last-edited timestamp. Mock initials and sample records are no longer used.
+
+The selected Song detail exposes only valid actions for its current state:
+
+- Edit opens `/creator/studio/:songId` unless generation is active.
+- Generate starts an eligible `DRAFT` or `READY` Song with audio and lyrics.
+- Retry is shown after a failed latest job when the Song is eligible.
+- View Generation opens the real job detail.
+- Publish is limited to `READY` and disabled until backend readiness succeeds.
+- Unpublish returns `PUBLISHED` to `READY`.
+- View opens the public Song route only for a published Song.
+- Archive is blocked for generating and already archived Songs.
+- Delete requires confirmation and is blocked while generating.
+
+Every mutation is performed through the backend and followed by a creator-list refetch. The UI does not pretend that local state is authoritative. The page polls while a Song or latest job is active so lifecycle and job status update without a full refresh.
+
+Dashboard now uses one authenticated summary response containing creator-scoped lifecycle counts, five recently edited Songs, and five recent generation jobs. Recent Song cards use real covers, titles, artists, statuses, timestamps, and Studio links. Job cards show real status, errors, and status-detail links. Dashboard polls while an active job is present.
+
+The backend summary performs all count and activity queries with the authenticated creator ID. Another creator's Songs and jobs are excluded from counts, recent content, and generation activity.
+
+Archive now changes an owned non-generating Song to `ARCHIVED` and clears `publishedDate`. Since public endpoints still query only `PUBLISHED`, archiving immediately removes a formerly public Song from public visibility.
+
+Delete now verifies ownership and rejects generating Songs. Before deletion it gathers Cloudinary identifiers for the cover, audio, final video, and generated frames. The Song is deleted through the existing database relationships, then Cloudinary cleanup is attempted for every gathered asset with the correct image or video resource type. Cleanup failures are counted and returned without restoring a Song that was already successfully deleted.
+
+### Routes Added or Changed
+
+- `GET /api/songs/creator` now includes latest generation state and publication readiness.
+- `GET /api/songs/creator/dashboard/summary` returns scoped counts, recent Songs, recent jobs, and an honest play-analytics availability flag.
+- `PUT /api/songs/:id/archive` archives an owned non-generating Song.
+- `DELETE /api/songs/:id` deletes an owned non-generating Song and attempts associated Cloudinary cleanup.
+
+Existing publish, unpublish, generation-start, Studio edit, and generation-detail routes were reused.
+
+### Files Modified
+
+- `backend/controllers/songController.js`
+- `backend/routes/songs.js`
+- `backend/services/cloudinaryService.js`
+- `backend/tests/songLifecycle.test.js`
+- `frontend/src/App.css`
+- `frontend/src/App.test.jsx`
+- `frontend/src/pages/CreatorSongs.jsx`
+- `frontend/src/pages/Dashboard.jsx`
+- `frontend/src/services/songService.js`
+- `Creator_workflow.md`
+
+No migration was needed in Phase 4. Existing lifecycle fields, associations, and Cloudinary public-ID fields were reused.
+
+Public Songs Library, Song Experience, Rhythm Game, and Reflection Wall were not modified.
+
+### Tests Added
+
+Backend tests now verify:
+
+- dashboard lifecycle counts are correct;
+- total count equals the creator's actual Song total;
+- another creator's Songs are excluded;
+- another creator's jobs are excluded;
+- recent Songs and jobs are creator-scoped;
+- play analytics are reported unavailable;
+- archive enforces ownership;
+- archive clears publication state and public visibility;
+- refreshed creator lists show `ARCHIVED`;
+- delete enforces ownership;
+- denied deletion preserves the Song;
+- successful deletion removes the Song;
+- deletion attempts cover, audio, video, and frame Cloudinary cleanup;
+- creator list refresh reflects publish and unpublish mutations.
+
+Frontend tests now verify:
+
+- My Songs renders a real backend Song and artist;
+- old `Song #1` mock data is absent;
+- Dashboard renders the backend summary;
+- fake `1,240` play totals and weekly chart are absent;
+- play analytics display an honest unavailable state.
+
+### Verification Performed
+
+- Complete backend Jest suite: four suites and twenty-eight tests passed.
+- Complete frontend Vitest suite: two files and twelve tests passed.
+- Full backend ESLint passed.
+- Full frontend ESLint passed.
+- Frontend production build passed with 1,880 modules transformed.
+- `git diff --check` was used during final verification.
+
+### My Review and Decisions
+
+I enriched the existing creator Song response rather than adding separate My Songs endpoints. Latest job state and readiness are properties of how the creator manages each Song, and returning them together avoids a request per row.
+
+I added a dedicated summary endpoint for Dashboard because counts and recent activity should represent one authenticated snapshot. Repeating those queries independently in the browser would add latency and increase the chance of inconsistent metrics.
+
+I removed fake analytics instead of replacing them with zero. Zero means a measured absence of plays, while unavailable means the application does not yet have a reliable measurement system. The latter is the honest state.
+
+I kept destructive asset cleanup best-effort after database deletion. A Cloudinary outage should be reported for operational cleanup, but it should not leave a database Song partially deleted or encourage an unsafe attempt to reconstruct cascaded records.
+
+### Final Outcome
+
+My Songs and Dashboard now reflect the authenticated creator's real database state. Lifecycle counts, filters, covers, metadata, generation activity, recent edits, publication readiness, and mutations no longer come from mock arrays or hardcoded numbers.
+
+Creator actions persist through backend endpoints and refetch authoritative state. Archive removes content from public visibility, delete enforces ownership and attempts full media cleanup, and active generation changes appear through polling. Dashboard contains no invented play totals or weekly activity.
+
+### Remaining Work
+
+- Public View still leads to the current placeholder Song Experience until its later integration phase.
+- Cloudinary cleanup failures are returned as a count but are not yet stored in a retry queue.
+- Replaced audio cleanup remains separate from full Song deletion cleanup.
+- An archived Song currently has no restore action because restoration was not requested.
+- Dashboard recent limits are fixed at five and do not yet support pagination.
+- Play analytics require a real persisted play-event or aggregate model before the metric can return.
+- Public Songs Library, Song Experience, Rhythm Game, and Reflection Wall remain for later approved phases.
+
+### Lesson
+
+Creator management pages must treat the database response as the source of truth after every mutation. Local-only deletion, archive, and publication changes create a convincing interface that immediately becomes incorrect after refresh or in another session.
+
+Metrics also need semantic honesty. A polished chart is harmful when its numbers are invented. Removing it and stating that analytics are unavailable preserves trust until real event tracking exists.

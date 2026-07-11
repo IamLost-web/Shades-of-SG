@@ -11,7 +11,7 @@ const { requireCreator } = require('../middleware/auth')
 router.get('/', requireCreator, getAllJobs)
 router.get('/:id/status', requireCreator, getGenerationStatus)
 
-// POST /start - Triggers the asynchronous generation pipeline (No auth yet for testing)
+// Starts generation for an existing creator-owned Song.
 router.post('/start', requireCreator, startGeneration)
 
 module.exports = router

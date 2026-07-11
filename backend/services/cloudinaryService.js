@@ -91,8 +91,20 @@ async function deleteImage(publicId) {
   }
 }
 
+async function deleteAsset(publicId, resourceType = 'image') {
+  if (!publicId || typeof publicId !== 'string') return { deleted: false, result: 'skipped' };
+  try {
+    const result = await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+    if (!['ok', 'not_found'].includes(result.result)) throw new Error(`Unexpected result from Cloudinary: ${result.result}`);
+    return { public_id: publicId, result: result.result, deleted: result.result === 'ok' };
+  } catch (error) {
+    throw new Error(`Cloudinary deletion failed: ${error.message}`, { cause: error });
+  }
+}
+
 module.exports = {
   uploadImage,
   uploadImageBuffer,
   deleteImage,
+  deleteAsset,
 };

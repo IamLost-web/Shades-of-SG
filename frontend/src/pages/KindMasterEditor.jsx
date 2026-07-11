@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
-import { API_URL } from '../services/apiConfig'
+import { useAuth } from '../context/AuthContext'
+import { getGenerationJob } from '../services/songService'
 
 export default function KindMasterEditor() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { token } = useAuth()
   
   const [jobData, setJobData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -14,11 +16,7 @@ export default function KindMasterEditor() {
   useEffect(() => {
     const fetchJob = async () => {
       try {
-        const response = await fetch(`${API_URL}/generation/${id}/status`)
-        const json = await response.json()
-        if (json.success) {
-          setJobData(json.data)
-        }
+        setJobData(await getGenerationJob(id, token))
       } catch (err) {
         console.error(err)
       } finally {
@@ -26,7 +24,7 @@ export default function KindMasterEditor() {
       }
     }
     fetchJob()
-  }, [id])
+  }, [id, token])
 
   if (loading) {
     return (

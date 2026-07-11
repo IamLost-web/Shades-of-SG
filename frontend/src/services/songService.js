@@ -68,3 +68,32 @@ export function startGeneration(songId, token) {
     body: JSON.stringify({ songId }), headers: { 'Content-Type': 'application/json' }, method: 'POST', token,
   }).then((data) => data.data)
 }
+
+export function getCreatorSongs(token, status) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : ''
+  return request(`/songs/creator${query}`, { token }).then((data) => data.songs)
+}
+
+export function getGenerationJobs(token) {
+  return request('/generation', { token }).then((data) => data.data)
+}
+
+export function getGenerationJob(jobId, token) {
+  return request(`/generation/${encodeURIComponent(jobId)}/status`, { token }).then((data) => data.data)
+}
+
+export function unpublishSong(songId, token) {
+  return request(`/songs/${encodeURIComponent(songId)}/unpublish`, { method: 'PUT', token }).then((data) => data.song)
+}
+
+export function archiveSong(songId, token) {
+  return request(`/songs/${encodeURIComponent(songId)}/archive`, { method: 'PUT', token }).then((data) => data.song)
+}
+
+export function deleteSong(songId, token) {
+  return request(`/songs/${encodeURIComponent(songId)}`, { method: 'DELETE', token })
+}
+
+export function getCreatorDashboardSummary(token) {
+  return request('/songs/creator/dashboard/summary', { token })
+}

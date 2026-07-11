@@ -80,4 +80,40 @@ describe('App', () => {
     expect(screen.getByDisplayValue('Studio Artist')).toBeInTheDocument()
     expect(window.location.pathname).toBe('/creator/studio/song-123')
   })
+
+  it('renders creator-scoped My Songs data instead of mock songs', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    window.history.pushState({}, '', '/creator/songs')
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      json: async () => ({ songs: [{
+        artist: 'Database Artist', coverImageUrl: '', creatorId: 'creator-1', id: 'real-song-1',
+        latestGenerationJob: null, publishMissing: [], publishReady: false, rawLyrics: 'Lyrics',
+        status: 'DRAFT', title: 'Database Draft', updatedAt: new Date().toISOString(),
+      }] }),
+      ok: true, status: 200,
+    })))
+    render(<AuthProvider><App /></AuthProvider>)
+    expect(await screen.findAllByText('Database Draft')).not.toHaveLength(0)
+    expect(screen.queryByText('Song #1')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Database Artist')).not.toHaveLength(0)
+  })
+
+  it('renders real dashboard summary counts without fake play totals', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    window.history.pushState({}, '', '/creator/dashboard')
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      json: async () => ({
+        counts: { ARCHIVED: 1, DRAFT: 2, GENERATING: 0, PUBLISHED: 3, READY: 1, total: 7 },
+        generationJobs: [], playAnalyticsAvailable: false, recentSongs: [],
+      }),
+      ok: true, status: 200,
+    })))
+    render(<AuthProvider><App /></AuthProvider>)
+    expect(await screen.findByText('Play analytics')).toBeInTheDocument()
+    expect(screen.getByText('Unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('1,240')).not.toBeInTheDocument()
+    expect(screen.queryByText('Plays this week:')).not.toBeInTheDocument()
+  })
 })

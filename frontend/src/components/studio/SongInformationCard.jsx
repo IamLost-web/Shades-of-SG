@@ -2,15 +2,12 @@ import LanguageSelector from './LanguageSelector'
 import MoodTagSelector from './MoodTagSelector'
 import SongMediaUpload from './SongMediaUpload'
 
-const themeOptions = ['Select a theme', 'Heritage', 'Memory', 'Rhythm', 'Nightscape', 'Festive', 'Reflective']
-const blockedWords = ['fuck', 'shit', 'bitch', 'cb', 'knn', 'pukimak']
+const themeOptions = ['Select a theme', 'National Identity', 'Unity & Harmony', 'Home & Belonging', 'History & Journey', 'Community']
+const htmlTagPattern = /<[^>]*>/
 
 function getDescriptionValidationMessage(description) {
-  const normalizedDescription = description.toLowerCase()
-  const matchedWord = blockedWords.find((word) => normalizedDescription.includes(word))
-
-  if (matchedWord) {
-    return 'Please remove vulgarities before saving this song description.'
+  if (htmlTagPattern.test(description)) {
+    return 'Please remove HTML tags from this song description.'
   }
 
   return ''
@@ -18,10 +15,12 @@ function getDescriptionValidationMessage(description) {
 
 export default function SongInformationCard({
   audioFileName,
+  coverImageUrl,
   descriptionLength,
   formData,
   onAudioFileChange,
   onAudioFileClear,
+  onCoverImageChange,
   onFieldChange,
   onLanguageToggle,
   onMoodToggle,
@@ -91,6 +90,12 @@ export default function SongInformationCard({
         </div>
 
         <div className="studio-form-column studio-form-column--right">
+          <label className="studio-field studio-cover-upload">
+            <span>Cover Image <strong>*</strong></span>
+            {coverImageUrl ? <img alt="Song cover preview" className="studio-cover-upload__preview" src={coverImageUrl} /> : null}
+            <input accept="image/jpeg,image/png,image/webp" onChange={onCoverImageChange} type="file" />
+            <small>{coverImageUrl ? 'Choose another image to replace this cover.' : 'JPG, PNG, or WebP up to 10MB.'}</small>
+          </label>
           <LanguageSelector
             onOtherLanguageChange={onOtherLanguageChange}
             onToggleLanguage={onLanguageToggle}

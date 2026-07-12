@@ -5,6 +5,7 @@ const nodemailer = require("nodemailer")
 const router = express.Router();
 const User = require("../models/User");
 const { hashPassword, verifyPassword, createToken, serializeUser } = require("../services/authService");
+const validateBio = require('../middleware/validateBio');
 
 
 //including a middleware for my settings <3
@@ -13,11 +14,12 @@ const authMiddleware = require("../middleware/authMiddleware");
 
 
 // POST /auth/register
+// POST /auth/register
 router.post("/register", async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, bio, interestTags } = req.body;
 
   try {
-    // Check if name already exist
+    // ✅ Check if name already exists
     const existingName = await User.findOne({ where: { name } });
     if (existingName) {
       return res.status(400).json({
@@ -25,19 +27,43 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    // Check if email already exist
-    const existing = await User.findOne({ where: { email } });
-    if (existing) {
-      return res.status(400).json({ "message": "Name already taken. Please choose a different one." });
+    // ✅ Check if email already exists
+    const existingEmail = await User.findOne({ where: { email } });
+    if (existingEmail) {
+      return res.status(400).json({
+        message: "Email already registered. Please use another."
+      });
     }
 
-    const passwordHash = hashPassword(password);
-    const user = await User.create({ name, email, passwordHash, role: "REGISTERED" });
+    // ✅ Validate bio (or fallback to default)
+    const bioValue = bio && bio.trim().length > 0 ? bio : "This is my bio";
+    const bioError = validateBio(bioValue);
+    if (bioError) {
+      return res.status(400).json({ message: bioError });
+    }
 
+    // ✅ Hash password using your custom crypto
+    const passwordHash = hashPassword(password);
+
+    // ✅ Create user with defaults if fields not provided
+    const user = await User.create({
+      name,
+      email,
+      passwordHash,
+      role: "REGISTERED",
+      bio: bioValue,
+      interestTags: interestTags || []
+    });
+
+    // ✅ Create JWT
     const token = createToken(user);
+
     res.json({ user: serializeUser(user), token });
   } catch (err) {
-    res.status(500).json({ message: "Registration failed", details: err.message });
+    res.status(500).json({
+      message: "Registration failed",
+      details: err.message
+    });
   }
 });
 
@@ -57,6 +83,7 @@ router.post("/login", async (req, res) => {
     }
 
     const token = createToken(user);
+
     res.json({ user: serializeUser(user), token });
   } catch (err) {
     res.status(500).json({ message: "Login failed", details: err.message });
@@ -197,8 +224,8 @@ router.post("/reset-password", async (req, res) => {
 
 // Update that profile
 // PUT /auth/update-profile
-router.put("/update-profile", async (req, res) => {
-  const { name, email } = req.body;
+router.put("/update-profile", authMiddleware, async (req, res) => {
+  const { name, email, bio, interestTags } = req.body;
   const userId = req.user?.id; // assuming you attach user to req via middleware
 
   if (!userId) {
@@ -219,12 +246,15 @@ router.put("/update-profile", async (req, res) => {
     }
 
     const user = await User.findByPk(userId);
-    user.name = name;
-    user.email = email;
+    // Update fields if provided
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (bio !== undefined) user.bio = bio.trim() || "This is my bio";
+    if (interestTags !== undefined) user.interestTags = interestTags;
     await user.save();
 
     const token = createToken(user);
-    res.json({ success: true, user: serializeUser(user), token });
+    res.json({ success: true, user: serializeUser(user), token: createToken(user) });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to update profile", details: err.message });
   }
@@ -233,7 +263,7 @@ router.put("/update-profile", async (req, res) => {
 
 //Change password
 // POST /auth/change-password
-router.post("/change-password", async (req, res) => {
+router.post("/change-password", authMiddleware, async (req, res) => {
   const { oldPassword, newPassword } = req.body;
   const userId = req.user?.id;
 
@@ -260,26 +290,46 @@ router.post("/change-password", async (req, res) => {
 
 //Delete account
 // DELETE /auth/delete-account/:id
-router.delete("/delete-account/:id", async (req, res) => {
+router.delete("/delete-account/:id", authMiddleware, async (req, res) => {
   const { id } = req.params;
-  const userId = req.user?.id;
 
-  if (!userId || parseInt(id) !== userId) {
-    return res.status(401).json({ success: false, message: "Unauthorized" });
+  // Ensure the token’s user id matches the URL id
+  if (req.user.id !== id) {
+    return res.status(403).json({ success: false, message: "Forbidden" });
   }
 
   try {
-    const user = await User.findByPk(userId);
+    const user = await User.findByPk(id);
     if (!user) {
-      return res.json({ success: false, message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    await user.destroy();
+    await User.destroy({ where: { id } });
     res.json({ success: true, message: "Account deleted successfully" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to delete account", details: err.message });
   }
 });
+
+//Previous Issue with delete:
+// parseInt(id) !== userId will fail because your IDs are UUID strings, not integers.
+// You’re checking twice (Unauthorized then Forbidden) — redundant.
+
+
+router.put("/update-2fa", authMiddleware, async (req, res) => {
+  try {
+    const { enable2fa } = req.body;
+    const user = req.user; // Sequelize instance
+
+    user.enable2fa = !!enable2fa;
+    await user.save();
+
+    res.json({ success: true, user: serializeUser(user) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to update 2FA", details: err.message });
+  }
+});
+
 
 //end
 

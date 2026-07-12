@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, useState } from 'react'
+import { useAuth } from './AuthContext';
 
 const SESSION_STORAGE_KEY = 'shadesOfSgGuestSession'
 const SessionContext = createContext(null)
@@ -14,6 +15,7 @@ function createGuestSession() {
 }
 
 function loadGuestSession() {
+  
   const existingSession = localStorage.getItem(SESSION_STORAGE_KEY)
 
   if (existingSession) {
@@ -26,7 +28,15 @@ function loadGuestSession() {
 }
 
 export function SessionProvider({ children }) {
-  const [session, setSession] = useState(loadGuestSession)
+  const { user } = useAuth()
+
+  // ✅ Only create guest session if no logged-in user
+  const [session, setSession] = useState(() => {
+    if (user) {
+      return null 
+    }
+    return loadGuestSession()
+  })
 
   const value = useMemo(() => ({
     session,
@@ -41,6 +51,7 @@ export function SessionProvider({ children }) {
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }
+
 
 export function useSession() {
   const context = useContext(SessionContext)

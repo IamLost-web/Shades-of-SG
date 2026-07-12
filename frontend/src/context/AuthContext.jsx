@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { useSession } from '../context/SessionContext'
 
 const AuthContext = createContext();
 
@@ -6,29 +7,49 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
 
-  // Load from localStorage on refresh
+
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-    const savedToken = localStorage.getItem("token");
-    if (savedUser && savedToken) {
-      setUser(JSON.parse(savedUser));
-      setToken(savedToken);
+    const storedUser = localStorage.getItem("user");
+    const storedToken = localStorage.getItem("token");
+
+    if (storedUser && storedToken) {
+      try {
+        setUser(JSON.parse(storedUser));
+        setToken(storedToken);
+      } catch {
+        // If parsing fails, clear bad data
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+      }
     }
   }, []);
 
-  function signIn(nextUser, nextToken) {
-    setUser(nextUser);
-    setToken(nextToken);
-    localStorage.setItem("user", JSON.stringify(nextUser));
-    localStorage.setItem("token", nextToken);
-  }
 
+
+  function signIn(nextUser, nextToken) {
+    // ✅ Always include bio + interestTags
+    const mergedUser = {
+      ...nextUser,
+      bio: nextUser.bio,
+      interestTags: nextUser.interestTags,
+    };
+
+    setUser(mergedUser);
+    setToken(nextToken);
+    localStorage.setItem("user", JSON.stringify(mergedUser));
+    localStorage.setItem("token", nextToken);
+
+    // ✅ Clear guest session once logged in
+    localStorage.removeItem("shadesOfSgGuestSession");
+  }
+  
   function signOut() {
-    setUser(null);
-    setToken(null);
     localStorage.removeItem("user");
     localStorage.removeItem("token");
+    setUser(null);
+    setToken(null);
   }
+
 
   return (
     <AuthContext.Provider value={{ user, token, signIn, signOut }}>

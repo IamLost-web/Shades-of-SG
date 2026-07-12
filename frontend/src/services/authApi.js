@@ -2,17 +2,44 @@
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
 
-// Register new user
-export async function registerWithEmail(name, email, password) {
-  const response = await fetch(`${API_URL}/auth/register`, {
-    body: JSON.stringify({ name, email, password }),
-    headers: { 'Content-Type': 'application/json' },
-    method: 'POST',
+//trying that new jwt
+// Helper: get token from localStorage (or context)
+function getAuthHeaders() {
+  const token = localStorage.getItem('token') // adjust if you store elsewhere
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+// Generic fetch wrapper
+async function apiFetch(path, options = {}) {
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+      ...(options.headers || {}),
+    },
   })
   const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data.message || 'Unable to register.')
-  return data // { user, token }
+  if (!response.ok) throw new Error(data.message || 'Request failed.')
+  return data
 }
+//end
+
+
+
+
+// Register new user
+export async function registerWithEmail(name, email, password, bio, interestTags) {
+  const response = await fetch(`${API_URL}/auth/register`, {
+    body: JSON.stringify({ name, email, password, bio, interestTags }),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.message || 'Unable to register.');
+  return data;
+}
+
 
 // Login existing user
 export async function loginWithEmail(email, password) {
@@ -76,29 +103,31 @@ export async function resetPassword(email, newPassword) {
 }
 
 // Settings: Profile update
-export async function updateProfile({ name, email }) {
-  const response = await fetch(`${API_URL}/auth/update-profile`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, email }),
+export async function updateProfile({ name, email, bio, interestTags }) {
+  return apiFetch('/auth/update-profile', {
+    method: 'PUT',
+    body: JSON.stringify({ name, email, bio, interestTags })
   })
-  return response.json()
 }
 
 // Settings: Change password
 export async function changePassword({ oldPassword, newPassword }) {
-  const response = await fetch(`${API_URL}/auth/change-password`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  return apiFetch('/auth/change-password', {
+    method: 'POST',
     body: JSON.stringify({ oldPassword, newPassword }),
   })
-  return response.json()
 }
 
 // Settings: Delete account
 export async function deleteAccount(userId) {
-  const response = await fetch(`${API_URL}/auth/delete-account/${userId}`, {
-    method: "DELETE",
+  return apiFetch(`/auth/delete-account/${userId}`, { //the issue is that the request is sending with the user id
+    method: 'DELETE',
   })
-  return response.json()
+}
+
+export async function updateTwoFA(enable2fa) {
+  return apiFetch('/auth/update-2fa', {
+    method: 'PUT',
+    body: JSON.stringify({ enable2fa })
+  });
 }

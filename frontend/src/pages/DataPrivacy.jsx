@@ -6,6 +6,10 @@ export default function DataPrivacy() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
 
+  if (!user) {
+    return <p>Loading profile...</p>;
+  }
+
   async function handleDelete() {
     const confirm = window.confirm('Are you sure you wish to delete this account? This action is non-reversible.')
     if (!confirm) return

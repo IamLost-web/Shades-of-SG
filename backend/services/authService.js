@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const User = require('../models/User');
+const jwt = require("jsonwebtoken");
 
 const HASH_ITERATIONS = 120000;
 const HASH_KEY_LENGTH = 64;
@@ -27,38 +28,27 @@ function verifyPassword(password, storedHash) {
     return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(nextHash, 'hex'));
 }
 
-function createToken(user) {    //Gotta figure out this: whether to change + i ned to put auth_token_secret
-    const secret = process.env.AUTH_TOKEN_SECRET || 'local-dev-auth-secret';
-    const payload = Buffer.from(JSON.stringify({
-        email: user.email,
-        id: user.id,
-        role: user.role,
-    })).toString('base64url');
-    const signature = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
-
-    return `${payload}.${signature}`;
-   /*
-    const jwt = require("jsonwebtoken");
-
-    function createToken(user) {
-        const secret = process.env.AUTH_TOKEN_SECRET || "local-dev-auth-secret";
-        return jwt.sign(
-            { id: user.id, email: user.email, role: user.role },
-            secret,
-            { expiresIn: "7d" }
-        );
-    }
-    */
+function createToken(user) {
+    const secret = process.env.AUTH_TOKEN_SECRET || "local-dev-auth-secret";
+    return jwt.sign(
+        { id: user.id, email: user.email, role: user.role, bio: user.bio, interestTags: user.interestTags, enable2fa: user.enable2fa },
+        secret,
+        { expiresIn: "7d" }
+    );
 }
 
 function serializeUser(user) {
     return {
-        email: user.email,
         id: user.id,
         name: user.name,
+        email: user.email,
         role: user.role,
+        bio: user.bio,
+        interestTags: user.interestTags,
+        enable2fa: user.enable2fa,
     };
 }
+
 
 async function seedCreatorAccount() {
     const email = process.env.SEED_CREATOR_EMAIL;

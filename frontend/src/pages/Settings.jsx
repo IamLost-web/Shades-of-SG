@@ -38,7 +38,7 @@ export default function Settings() {
       <section className="two-column">
         <Link to="/settings/profile" style={{ textDecoration: 'none' }}>
           <SectionCard title="Profile">
-            <p>Manage username and email.</p>
+            <p>Manage user information such as username, email, bio and interest tags.</p>
           </SectionCard>
         </Link>
         <Link to="/settings/account-security" style={{ textDecoration: 'none' }}>

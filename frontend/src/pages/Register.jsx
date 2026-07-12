@@ -32,6 +32,7 @@ import * as Yup from 'yup'
 //lia.otp.start
 import { sendEmailOtp, verifyEmailOtp, registerWithEmail, checkNameAvailability, checkEmailAvailability } from '../services/authApi'
 //lia.otp.end
+import InterestTagsAccordion from "../components/InterestTagsAccordion";
 
 // Define Yup schema
 const registerSchema = Yup.object().shape({
@@ -42,6 +43,16 @@ const registerSchema = Yup.object().shape({
     .matches(/[A-Z]/, 'Password must contain an uppercase letter')
     .matches(/[0-9]/, 'Password must contain a number')
     .required('Password is required'),
+  confirmPassword: Yup.string()
+    .oneOf([Yup.ref('password'), null], 'Passwords must match')
+    .required('Confirm Password is required'),
+  bio: Yup.string()
+    .max(200, "Bio must be at most 200 characters")
+    .test("no-forbidden-words", "Bio contains forbidden words", (value) => {
+      if (!value) return true;
+      const forbidden = ["fuck", "ass"];
+      return !forbidden.some((w) => value.toLowerCase().includes(w));
+    })
 })
 
 export default function Register() {
@@ -49,7 +60,14 @@ export default function Register() {
   const { signIn } = useAuth()
 
   // Form states
-  const [formValues, setFormValues] = useState({ name: '', email: '', password: '' })
+  const [formValues, setFormValues] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    bio: '',
+  });
+  const [selectedTags, setSelectedTags] = useState([]);
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -60,6 +78,7 @@ export default function Register() {
 
   // Show/hide password
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   // Availability checks
   const [nameAvailable, setNameAvailable] = useState(true)
@@ -68,6 +87,10 @@ export default function Register() {
   // Handlers
   const [checkingName, setCheckingName] = useState(false);
   const [checkingEmail, setCheckingEmail] = useState(false);
+
+  //Error message below the relevant fields
+  const [fieldErrors, setFieldErrors] = useState({})
+
   // Debounce timers
   let nameTimer;
   let emailTimer;
@@ -102,7 +125,7 @@ export default function Register() {
         setEmailAvailable(res.available);
         setError(res.available ? '' : res.message);
         setCheckingEmail(false);
-      }, 300);
+      }, 400); //lia increased the debounce from 300 to 400
     } else {
       setCheckingEmail(false);
     }
@@ -110,7 +133,27 @@ export default function Register() {
 
 
   async function handleSendOtp() {
+    setError('')
+    setFieldErrors({})
+
     try {
+      // Run full validation (name, email, password, confirmPassword)
+      await registerSchema.validate(formValues, { abortEarly: false })
+
+      // Check availability of name and email
+      const nameRes = await checkNameAvailability(formValues.name)
+      if (!nameRes.available) {
+        setFieldErrors(prev => ({ ...prev, name: 'Name already taken' }))
+        return
+      }
+
+      const emailRes = await checkEmailAvailability(formValues.email)
+      if (!emailRes.available) {
+        setFieldErrors(prev => ({ ...prev, email: 'Email already registered' }))
+        return
+      }
+
+      // If everything passes, send OTP
       const res = await sendEmailOtp(formValues.email)
       if (res.success) {
         setOtpSent(true)
@@ -118,10 +161,20 @@ export default function Register() {
       } else {
         setError(res.message)
       }
-    } catch (err) {
-      setError("Error sending OTP")
+    } catch (validationError) {
+      if (validationError.name === 'ValidationError') {
+        //Map Yup errors to fields
+        const errors = {}
+        validationError.inner.forEach(err => {
+          errors[err.path] = err.message
+        })
+        setFieldErrors(errors)
+      } else {
+        setError(validationError.message || "Validation failed")
+      }
     }
   }
+
 
   async function handleVerifyOtp() {
     const res = await verifyEmailOtp(formValues.email, otpCode)
@@ -137,7 +190,6 @@ export default function Register() {
     event.preventDefault()
     setError('')
 
-    // 🚫 Block registration until OTP verified
     if (!otpVerified) {
       setError("Please verify your email with OTP before registering.")
       return
@@ -147,14 +199,31 @@ export default function Register() {
       await registerSchema.validate(formValues, { abortEarly: false })
 
       setIsSubmitting(true)
-      const data = await registerWithEmail(formValues.name, formValues.email, formValues.password)
+      const data = await registerWithEmail(
+        formValues.name,
+        formValues.email,
+        formValues.password,
+        formValues.bio,
+        selectedTags
+      );
+
+
+      // ✅ Store token + user in localStorage
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+
+      // ✅ Update context
       signIn(data.user, data.token)
 
       const fallbackPath = data.user.role === 'CREATOR' ? '/creator/dashboard' : '/'
       navigate(fallbackPath, { replace: true })
     } catch (validationError) {
       if (validationError.name === 'ValidationError') {
-        setError(validationError.errors.join(', '))
+        const errors = {}
+        validationError.inner.forEach(err => {
+          errors[err.path] = err.message
+        })
+        setFieldErrors(errors)
       } else {
         setError(validationError.message || "Registration failed. Please try again.")
       }
@@ -190,6 +259,9 @@ export default function Register() {
         {nameAvailable && !checkingName && formValues.name.trim().length > 2 && (
           <span style={{ color: "green", fontSize: "12px" }}>✅ Name available</span>
         )}
+        {fieldErrors.name && (
+          <span style={{ color: "red", fontSize: "12px" }}>{fieldErrors.name}</span>
+        )}
       </label>
 
       <label className="field-stack">
@@ -211,6 +283,9 @@ export default function Register() {
         )}
         {emailAvailable && !checkingEmail && formValues.email.includes("@") && (
           <span style={{ color: "green", fontSize: "12px" }}>✅ Email available</span>
+        )}
+        {fieldErrors.email && (
+          <span style={{ color: "red", fontSize: "12px" }}>{fieldErrors.email}</span>
         )}
       </label>
 
@@ -234,10 +309,55 @@ export default function Register() {
             onClick={() => setShowPassword(!showPassword)}
             style={{ marginLeft: "8px" }}
           >
-            {showPassword ? "🙈 Hide" : "👁 Show"} {/* 🙉 */}
+            {showPassword ? "🙈 Hide" : "👁 Show"}
           </button>
         </div>
+        {fieldErrors.password && (
+          <span style={{ color: "red", fontSize: "12px" }}>{fieldErrors.password}</span>
+        )}
       </label>
+
+
+      <label className="field-stack">
+        <span>Confirm Password</span>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <input
+            type={showConfirmPassword ? "text" : "password"}
+            value={formValues.confirmPassword}
+            onChange={(e) => setFormValues({ ...formValues, confirmPassword: e.target.value })}
+            placeholder="Confirm Password"
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            style={{ marginLeft: "8px" }}
+          >
+            {showConfirmPassword ? "🙈 Hide" : "👁 Show"}
+          </button>
+        </div>
+        {fieldErrors.confirmPassword && (
+          <span style={{ color: "red", fontSize: "12px" }}>{fieldErrors.confirmPassword}</span>
+        )}
+      </label>
+
+      <label className="field-stack">
+        <span>Bio</span>
+        <textarea
+          value={formValues.bio}
+          onChange={(e) => setFormValues({ ...formValues, bio: e.target.value })}
+          placeholder="Tell us about yourself"
+          rows={4}
+          style={{ resize: "none" }}
+        />
+        {fieldErrors.bio && (
+          <span style={{ color: "red", fontSize: "12px" }}>{fieldErrors.bio}</span>
+        )}
+      </label>
+
+      <InterestTagsAccordion selectedTags={selectedTags} setSelectedTags={setSelectedTags} />
+
+
 
 
       {/*otp.start*/}

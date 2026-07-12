@@ -31,7 +31,7 @@ export default function Login() {
         setEmailExists(res.exists);
         setError(res.exists ? '' : "Email not registered. Please create an account.");
         setCheckingEmail(false);
-      }, 300); //Should I lowkey increase the debounce??
+      }, 400); //Should I lowkey increase the debounce?? //Yas, increase from 300 to 400
     } else {
       setCheckingEmail(false);
     }
@@ -45,6 +45,12 @@ export default function Login() {
 
     try {
       const data = await loginWithEmail(email, password)
+
+      // ✅ Store token + user in localStorage
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+
+      // ✅ Update context
       signIn(data.user, data.token)
 
       const fallbackPath = data.user.role === 'CREATOR' ? '/creator/dashboard' : '/'
@@ -55,6 +61,7 @@ export default function Login() {
       setIsSubmitting(false)
     }
   }
+
 
   return (
     <form className="auth-form" onSubmit={handleSubmit}>

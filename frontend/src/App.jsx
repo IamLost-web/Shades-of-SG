@@ -103,9 +103,9 @@ function App() {
             <Route element={<ReflectionModeration />} path="/creator/reflections" />
             <Route element={<Profile />} path="/creator/profile" />
             <Route element={<Settings />} path="/creator/settings" />
-            <Route path="/settings/profile" element={<ProfileSettings />} />
-            <Route path="/settings/account-security" element={<AccountSecurity />} />
-            <Route path="/settings/data-privacy" element={<DataPrivacy />} />
+            <Route path="/creator/settings/profile" element={<ProfileSettings />} />
+            <Route path="/creator/settings/account-security" element={<AccountSecurity />} />
+            <Route path="/creator/settings/data-privacy" element={<DataPrivacy />} />
           </Route>
         </Route>
 

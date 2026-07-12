@@ -27,6 +27,24 @@ const User = sequelize.define('User', {
         allowNull: false,
         defaultValue: 'REGISTERED',
     },
+    bio: { //lia added this after just adding a row in supabase
+        type: DataTypes.STRING,
+        allowNull: false, 
+        defaultValue: 'This is my bio',
+    },
+    interestTags: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [], //idk man..
+        field: 'interest_tags', //name from supabase
+    },
+    enable2fa: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        allowNull: false,
+        field: 'enable_2fa',
+    },
+
 }, {
     tableName: 'users',
     underscored: true,

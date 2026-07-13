@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
@@ -10,6 +10,7 @@ describe('App', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     cleanup()
     vi.unstubAllGlobals()
   })
@@ -106,6 +107,53 @@ describe('App', () => {
     expect(window.location.pathname).toBe('/creator/studio/song-123')
   })
 
+  it('shows publishing tasks only after Publish is attempted and uses friendly video choices', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    window.history.pushState({}, '', '/creator/studio/song-456')
+    const savedSong = {
+      artist: 'Violet', audioUrl: 'https://media.example/song.mp3', coverImageUrl: 'https://media.example/cover.jpg',
+      description: 'Description', durationSecs: 120, id: 'song-456', languages: ['English'], moodTags: [],
+      otherLanguages: [], rawLyrics: 'Lyrics', status: 'DRAFT', theme: 'Community', title: 'Modal Song', updatedAt: new Date().toISOString(),
+    }
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      const path = String(url)
+      if (path.includes('/beatmaps')) return { json: async () => ({ beatmaps: [] }), ok: true, status: 200 }
+      if (path.includes('/transcriptions/status')) return { json: async () => ({ configured: true }), ok: true, status: 200 }
+      if (path.includes('/readiness')) return { json: async () => ({ missing: ['videoUrl', 'status READY'], ready: false, songStatus: 'DRAFT' }), ok: true, status: 200 }
+      return { json: async () => ({ song: savedSong }), ok: true, status: 200 }
+    }))
+
+    render(<AuthProvider><App /></AuthProvider>)
+    expect(await screen.findByDisplayValue('Modal Song')).toBeInTheDocument()
+    expect(screen.queryByText(/Publishing requirements remaining|videoUrl|status READY/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Lyrics' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Preview & Publish' }))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Publish Song' })[0])
+
+    expect(await screen.findByRole('dialog', { name: 'Complete these tasks before publishing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Generate AI Video' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Upload Video' })).toBeInTheDocument()
+    expect(screen.queryByText(/videoUrl|status READY/)).not.toBeInTheDocument()
+  })
+
+  it('shows save errors only after Save Draft and dismisses them after five seconds', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    window.history.pushState({}, '', '/creator/studio/new')
+    vi.useFakeTimers()
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }))
+      await Promise.resolve()
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent('Add a song title before saving your draft.')
+    act(() => vi.advanceTimersByTime(5000))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('renders creator-scoped My Songs data instead of mock songs', async () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
@@ -174,7 +222,7 @@ describe('App', () => {
     expect(screen.getByText('Experience Artist')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Start Trivia' })).toHaveAttribute('href', '/songs/published-42/trivia')
     expect(screen.getByRole('link', { name: 'Open Playground' })).toHaveAttribute('href', '/songs/published-42/playground')
-    expect(screen.getByRole('link', { name: 'Play Rhythm Game' })).toHaveAttribute('href', '/game/published-42?difficulty=MEDIUM')
+    expect(screen.getByRole('link', { name: 'Play Medium Rhythm' })).toHaveAttribute('href', '/game/published-42?difficulty=MEDIUM')
     expect(screen.getByRole('link', { name: 'Share a Reflection' })).toHaveAttribute('href', '/reflections?song_id=published-42')
   })
 
@@ -190,19 +238,27 @@ describe('App', () => {
     expect(screen.getByText('Rhythm game unavailable')).toHaveAttribute('title', 'This rhythm game is not available yet.')
   })
 
-  it('lists only playable published Songs in Rhythm Hub using covers and real ids', async () => {
+  it('lists every published difficulty as its own playable Rhythm Hub track', async () => {
     window.history.pushState({}, '', '/rhythm-game')
     vi.stubGlobal('fetch', vi.fn(async (url) => ({
-      json: async () => String(url).includes('/beatmaps') ? { beatmaps: [{ difficulty: 'EASY', status: 'PUBLISHED' }] } : ({ songs: [
+      json: async () => String(url).includes('/beatmaps') ? { beatmaps: [
+        { difficulty: 'EASY', published: { noteCount: 40 }, status: 'PUBLISHED' },
+        { difficulty: 'MEDIUM', published: { noteCount: 70 }, status: 'PUBLISHED' },
+        { difficulty: 'HARD', published: { noteCount: 100 }, status: 'PUBLISHED' },
+      ] } : ({ songs: [
         { artist: 'Playable Artist', audioUrl: 'https://media.example/song.mp3', coverImageUrl: 'https://media.example/rhythm.jpg', durationSecs: 60, id: 'playable-1', languages: ['English'], status: 'PUBLISHED', theme: 'Community', title: 'Playable Published Song' },
         { artist: 'No Audio', audioUrl: '', coverImageUrl: '', durationSecs: 0, id: 'unplayable-1', languages: [], status: 'PUBLISHED', title: 'Unplayable Song' },
       ] }),
       ok: true, status: 200,
     })))
     render(<AuthProvider><App /></AuthProvider>)
-    expect(await screen.findByRole('heading', { name: 'Playable Published Song' })).toBeInTheDocument()
-    expect(screen.getByAltText('Playable Published Song cover')).toHaveAttribute('src', 'https://media.example/rhythm.jpg')
-    expect(screen.getByRole('link', { name: 'Play Song' })).toHaveAttribute('href', '/game/playable-1?difficulty=EASY')
+    expect(await screen.findByRole('heading', { name: /Playable Published Song.*Easy/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Playable Published Song.*Medium/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Playable Published Song.*Hard/ })).toBeInTheDocument()
+    expect(screen.getAllByAltText('Playable Published Song cover')).toHaveLength(3)
+    expect(screen.getByRole('link', { name: 'Play Easy Track' })).toHaveAttribute('href', '/game/playable-1?difficulty=EASY')
+    expect(screen.getByRole('link', { name: 'Play Medium Track' })).toHaveAttribute('href', '/game/playable-1?difficulty=MEDIUM')
+    expect(screen.getByRole('link', { name: 'Play Hard Track' })).toHaveAttribute('href', '/game/playable-1?difficulty=HARD')
     expect(screen.queryByText('Unplayable Song')).not.toBeInTheDocument()
   })
 

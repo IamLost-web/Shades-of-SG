@@ -4,10 +4,26 @@ const { parseAndNormalizeBeatmap } = require('./beatmapValidator')
 const { generateFallbackBeatmap } = require('./fallbackBeatmapGenerator')
 const { getOpenAIClient } = require('./openaiClient')
 
+const TARGET_NOTE_INTERVAL_MS = Object.freeze({ EASY: 4000, MEDIUM: 3000, HARD: 2000 })
+
+function requireFullSongCoverage(beatmap, { difficulty, durationMs }) {
+  const notes = beatmap.notes || []
+  const minimumNotes = Math.max(4, Math.ceil(durationMs / TARGET_NOTE_INTERVAL_MS[difficulty]))
+  const lastNoteMs = Math.max(...notes.map((note) => note.endMs || note.startMs), 0)
+  if (notes.length < minimumNotes || lastNoteMs < durationMs * 0.9) {
+    throw new Error(`Beatmap must cover the full song with at least ${minimumNotes} notes and activity through the final 10%.`)
+  }
+  return beatmap
+}
+
+function parseAiBeatmap(raw, options) {
+  return requireFullSongCoverage(parseAndNormalizeBeatmap(raw, options), options)
+}
+
 function buildPrompt(song, difficulty, segments) {
   const config = DIFFICULTY_CONFIG[difficulty]
   return {
-    system: `You design playable four-lane rhythm charts from supplied timing metadata. Return only JSON with difficulty, bpm, offsetMs, and notes. Each note has lane 0-3, integer startMs, type tap or hold; holds also have integer endMs. Do not imply waveform analysis. Keep same-lane notes non-overlapping, at most ${config.maxSimultaneous} simultaneous notes, minimum pattern spacing about ${config.minGapMs}ms, hold duration ${config.holdMinMs}-${config.holdMaxMs}ms, and hold share about ${Math.round(config.holdChance * 100)}%.`,
+    system: `You design playable four-lane rhythm charts from supplied timing metadata. Return only JSON with difficulty, bpm, offsetMs, and notes. Each note has lane 0-3, integer startMs, type tap or hold; holds also have integer endMs. Do not imply waveform analysis. The chart must span the complete supplied duration, with notes distributed throughout the song and activity in its final 10%. Keep same-lane notes non-overlapping, at most ${config.maxSimultaneous} simultaneous notes, minimum pattern spacing about ${config.minGapMs}ms, hold duration ${config.holdMinMs}-${config.holdMaxMs}ms, and hold share about ${Math.round(config.holdChance * 100)}%.`,
     user: JSON.stringify({
       title: song.title,
       artist: song.artist || null,
@@ -42,10 +58,10 @@ async function generateBeatmap(song, difficulty, { aiRequest = requestAiBeatmap 
   try {
     let raw = await aiRequest(song, difficulty)
     try {
-      return { beatmap: parseAndNormalizeBeatmap(raw, { difficulty, durationMs }), source: 'AI', aiError: null }
+      return { beatmap: parseAiBeatmap(raw, { difficulty, durationMs }), source: 'AI', aiError: null }
     } catch (firstError) {
       raw = await aiRequest(song, difficulty, { repair: true, error: firstError.message })
-      return { beatmap: parseAndNormalizeBeatmap(raw, { difficulty, durationMs }), source: 'AI', aiError: null }
+      return { beatmap: parseAiBeatmap(raw, { difficulty, durationMs }), source: 'AI', aiError: null }
     }
   } catch (error) {
     return {

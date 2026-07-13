@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import RhythmBeatmapPanel from './RhythmBeatmapPanel'
 
-const mocks = vi.hoisted(() => ({ deleteBeatmapDraft: vi.fn(), generateAllBeatmaps: vi.fn(), generateBeatmap: vi.fn(), getBeatmapSummary: vi.fn(), publishBeatmap: vi.fn(), saveBeatmapSettings: vi.fn(), unpublishBeatmap: vi.fn() }))
+const mocks = vi.hoisted(() => ({ deleteBeatmapDraft: vi.fn(), generateAllBeatmaps: vi.fn(), getBeatmapSummary: vi.fn(), publishBeatmap: vi.fn(), saveBeatmapSettings: vi.fn(), unpublishBeatmap: vi.fn() }))
 vi.mock('../../services/beatmapService', () => mocks)
 
 const missing = (difficulty) => ({ difficulty, draft: null, failed: null, published: null, status: 'NOT_CREATED' })
@@ -12,7 +12,7 @@ const published = { ...draft, offsetMs: 10, publishedAt: '2026-07-12T11:00:00.00
 const failed = { errorMessage: 'Beatmap generation failed. Please retry.', status: 'FAILED', version: 1 }
 const row = (overrides = {}) => ({ ...missing('MEDIUM'), ...overrides, difficulty: 'MEDIUM' })
 const rows = (medium = row()) => [missing('EASY'), medium, missing('HARD')]
-const renderPanel = () => render(<MemoryRouter><RhythmBeatmapPanel songId="song-1" token="creator-token" /></MemoryRouter>)
+const renderPanel = (songStatus = 'DRAFT') => render(<MemoryRouter><RhythmBeatmapPanel songId="song-1" songStatus={songStatus} token="creator-token" /></MemoryRouter>)
 
 describe('Studio Rhythm Beatmap panel', () => {
   beforeEach(() => Object.values(mocks).forEach((mock) => mock.mockReset()))
@@ -49,17 +49,26 @@ describe('Studio Rhythm Beatmap panel', () => {
     await waitFor(() => expect(mocks.unpublishBeatmap).toHaveBeenCalled())
   })
 
-  it('shows FAILED feedback and retries with AI while preventing duplicate clicks', async () => {
+  it('explains that a published beatmap stays private until its song is published', async () => {
+    mocks.getBeatmapSummary.mockResolvedValue(rows(row({ ...published, published, status: 'PUBLISHED' })))
+    renderPanel('READY')
+    expect(await screen.findByText('Published beatmaps remain private until this song is fully published.')).toBeInTheDocument()
+  })
+
+  it('shows FAILED feedback and regenerates all difficulties without duplicate controls or clicks', async () => {
     let resolveGeneration
     mocks.getBeatmapSummary.mockResolvedValue(rows(row({ failed, status: 'FAILED', ...failed })))
-    mocks.generateBeatmap.mockReturnValueOnce(new Promise((resolve) => { resolveGeneration = resolve }))
+    mocks.generateAllBeatmaps.mockReturnValueOnce(new Promise((resolve) => { resolveGeneration = resolve }))
     renderPanel()
     expect(await screen.findByText(/Beatmap generation failed/)).toBeInTheDocument()
-    const generate = screen.getByRole('button', { name: /generate with ai/i })
+    expect(screen.queryByRole('button', { name: /generate with ai/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /generate basic beatmap/i })).not.toBeInTheDocument()
+    const generate = screen.getByRole('button', { name: 'Generate All' })
     fireEvent.click(generate); fireEvent.click(generate)
-    expect(mocks.generateBeatmap).toHaveBeenCalledTimes(1)
-    expect(screen.getByRole('button', { name: /generating/i })).toBeDisabled()
+    expect(mocks.generateAllBeatmaps).toHaveBeenCalledTimes(1)
+    expect(mocks.generateAllBeatmaps).toHaveBeenCalledWith('song-1', 'creator-token', 'AI')
+    expect(screen.getByRole('button', { name: /generating all/i })).toBeDisabled()
     resolveGeneration({})
-    await waitFor(() => expect(screen.getByRole('button', { name: /generate with ai/i })).toBeEnabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Generate All' })).toBeEnabled())
   })
 })

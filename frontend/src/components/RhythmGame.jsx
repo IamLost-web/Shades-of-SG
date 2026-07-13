@@ -128,6 +128,29 @@ export default function RhythmGame() {
   const [previewMessage, setPreviewMessage] = useState('')
   const [previewBusy, setPreviewBusy] = useState(false)
 
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const stage = canvas?.parentElement
+    if (!canvas || !stage) return undefined
+
+    const redraw = () => {
+      const pressedLanes = new Set([...pressedKeysRef.current].map((key) => (
+        typeof key === 'number' ? key : LANES.findIndex((lane) => lane.key === key)
+      )))
+      drawGame(canvas, notesRef.current, songTimeRef.current, difficulty, pressedLanes, noteSpeed)
+    }
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(redraw)
+
+    observer?.observe(stage)
+    window.addEventListener('resize', redraw)
+    document.addEventListener('fullscreenchange', redraw)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', redraw)
+      document.removeEventListener('fullscreenchange', redraw)
+    }
+  }, [difficulty, noteSpeed])
+
   const totalNotes = beatmap?.notes.length || 0
   const accuracy = calculateWeightedAccuracy(stats.earnedAccuracyPoints, stats.maximumAccuracyPoints)
   const progress = Math.min(100, (songTimeMs / Math.max(beatmap?.durationMs || 1, 1)) * 100)
@@ -294,9 +317,6 @@ export default function RhythmGame() {
       if (videoRef.current && Math.abs(videoRef.current.currentTime - audioRef.current.currentTime) > 0.2) {
         videoRef.current.currentTime = audioRef.current.currentTime
       }
-      const complete = notesRef.current.every((note) => !['pending', 'holding'].includes(note.status))
-      const lastEnd = Math.max(...notesRef.current.map((note) => note.endMs || note.startMs), 0)
-      if (complete && now > lastEnd + JUDGEMENT_WINDOWS.BAD) { finishGame(); return }
       animationRef.current = requestAnimationFrame(tick)
     }
     animationRef.current = requestAnimationFrame(tick)

@@ -47,3 +47,24 @@ test('malformed AI response retries once then falls back', async () => {
   expect(generated.source).toBe('FALLBACK')
   expect(generated.beatmap.notes.length).toBeGreaterThan(0)
 })
+
+test('AI charts that end early retry once then fall back to full-song coverage', async () => {
+  const song = { id: 'full-song-seed', title: 'Full Song', durationSecs: 30 }
+  const sparseChart = JSON.stringify({
+    difficulty: 'MEDIUM',
+    notes: [
+      { lane: 0, startMs: 1000, type: 'tap' },
+      { lane: 1, startMs: 2000, type: 'tap' },
+      { lane: 2, startMs: 3000, type: 'tap' },
+      { lane: 3, startMs: 4000, type: 'tap' },
+    ],
+  })
+  const aiRequest = jest.fn().mockResolvedValue(sparseChart)
+
+  const generated = await generateBeatmap(song, 'MEDIUM', { aiRequest })
+  const lastNoteMs = Math.max(...generated.beatmap.notes.map((note) => note.endMs || note.startMs))
+
+  expect(aiRequest).toHaveBeenCalledTimes(2)
+  expect(generated.source).toBe('FALLBACK')
+  expect(lastNoteMs).toBeGreaterThanOrEqual(27000)
+})

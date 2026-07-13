@@ -33,7 +33,6 @@ export default function StudioHeader({
   onSaveDraft,
   showMenuButton = false,
   isBusy = false,
-  publishDisabled = false,
 }) {
   const content = stepContent[activeStep] || stepContent[1]
   const handleSecondaryAction = activeStep === 3 ? onSaveDraft : onGenerateVideo
@@ -71,7 +70,7 @@ export default function StudioHeader({
           <button className="studio-button studio-button--secondary" disabled={isBusy} onClick={handleSecondaryAction} type="button">
             {content.secondaryAction}
           </button>
-          <button className="studio-button studio-button--primary" disabled={isBusy || (activeStep === 3 && publishDisabled)} onClick={handlePrimaryAction} type="button">
+          <button className="studio-button studio-button--primary" disabled={isBusy} onClick={handlePrimaryAction} type="button">
             {content.primaryAction}
           </button>
         </div>

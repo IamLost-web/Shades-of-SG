@@ -31,6 +31,7 @@ function renderGame(entry = '/game/song-1') {
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/game/:songId" element={<RhythmGame />} />
+          <Route path="/game/:songId/results" element={<p>Results screen</p>} />
           <Route path="/rhythm-game" element={<p>Song selection</p>} />
         </Routes>
       </MemoryRouter>
@@ -93,13 +94,39 @@ describe('RhythmGame controls and lifecycle', () => {
     expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled()
   })
 
+  it('waits for the audio to end after the final chart note has passed', async () => {
+    let nextFrame
+    requestAnimationFrame.mockImplementation((callback) => { nextFrame = callback; return 1 })
+    renderGame()
+    const start = await screen.findByRole('button', { name: 'Start' })
+    await waitFor(() => expect(start).toBeEnabled())
+    const audio = document.querySelector('audio')
+    vi.useFakeTimers()
+
+    await act(async () => {
+      fireEvent.click(start)
+      await Promise.resolve()
+      vi.advanceTimersByTime(2800)
+      await Promise.resolve()
+    })
+    audio.currentTime = 2
+    await act(async () => nextFrame?.())
+
+    expect(screen.queryByText('Results screen')).not.toBeInTheDocument()
+    await act(async () => {
+      fireEvent.ended(audio)
+      await Promise.resolve()
+    })
+    expect(screen.getByText('Results screen')).toBeInTheDocument()
+  })
+
   it('uses the requested stored difficulty with authenticated creator preview access', async () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', role: 'CREATOR' }))
     renderGame('/game/song-1?difficulty=HARD&preview=1')
     await waitFor(() => expect(mocks.fetchSongDetails).toHaveBeenCalledWith('song-1', expect.objectContaining({ preview: true, token: 'creator-token' })))
     expect(mocks.loadBeatmap).toHaveBeenCalledWith(song, 'hard', expect.objectContaining({ preview: true, token: 'creator-token' }))
-    expect(await screen.findByText('Draft Preview')).toBeInTheDocument()
+    expect(await screen.findAllByText('Draft Preview')).not.toHaveLength(0)
     expect(screen.getByRole('button', { name: 'Back to Studio' })).toBeInTheDocument()
   })
 

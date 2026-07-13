@@ -127,7 +127,6 @@ function serializeCreatorSong(song) {
     const latestGenerationJob = jobs[0] || null;
     delete value.generationJobs;
     const missing = publishValidation(song);
-    if (!latestGenerationJob || latestGenerationJob.status !== 'COMPLETED') missing.push('completed generation job');
     return { ...value, latestGenerationJob, publishReady: missing.length === 0, publishMissing: missing };
 }
 
@@ -210,7 +209,6 @@ async function publishSong(req, res, next) {
         const latestJob = await GenerationJob.findOne({ where: { songId: song.id }, order: [['createdAt', 'DESC']] });
         await reconcileCompletedGeneration(song, latestJob);
         const missing = publishValidation(song);
-        if (!latestJob || latestJob.status !== 'COMPLETED') missing.push('completed generation job');
         if (missing.length) return res.status(400).json({ message: 'Song is not ready to publish.', missing });
         await song.update({ status: 'PUBLISHED', publishedDate: new Date() });
         return res.json({ song });
@@ -224,7 +222,6 @@ async function getPublishReadiness(req, res, next) {
         const latestJob = await GenerationJob.findOne({ where: { songId: song.id }, order: [['createdAt', 'DESC']] });
         await reconcileCompletedGeneration(song, latestJob);
         const missing = publishValidation(song);
-        if (!latestJob || latestJob.status !== 'COMPLETED') missing.push('completed generation job');
         return res.json({ ready: missing.length === 0, missing, songStatus: song.status, generationStatus: latestJob?.status || null });
     } catch (error) { return next(error); }
 }
@@ -257,6 +254,28 @@ async function uploadSongAudio(req, res, next) {
             audioPublicId: uploaded.audioPublicId,
             durationSecs: uploaded.duration,
         });
+        return res.json({ song });
+    } catch (error) { return next(error); }
+}
+
+async function uploadSongVideo(req, res, next) {
+    try {
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        if (!req.file) return res.status(400).json({ message: 'Choose an MP4 or WebM video to upload.' });
+        if (song.status === 'GENERATING') return res.status(409).json({ message: 'Please wait for the current video generation to finish before uploading another video.' });
+        const previousPublicId = song.videoPublicId;
+        const uploaded = await aiStorageService.uploadVideoStream(req.file.buffer);
+        await song.update({
+            status: song.status === 'PUBLISHED' ? 'PUBLISHED' : 'READY',
+            videoPublicId: uploaded.videoPublicId,
+            videoUrl: uploaded.videoUrl,
+        });
+        if (previousPublicId && previousPublicId !== uploaded.videoPublicId) {
+            await cloudinaryService.deleteAsset(previousPublicId, 'video').catch((error) => {
+                console.error(`Unable to delete replaced video ${previousPublicId}:`, error.message);
+            });
+        }
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -314,4 +333,4 @@ async function extractAudio(req, res, next) {
     } catch (error) { return next(error); }
 }
 
-module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio };
+module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };

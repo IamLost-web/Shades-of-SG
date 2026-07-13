@@ -14,6 +14,7 @@ const beatmapsRouter = require('./routes/beatmaps');
 const {
     ensureGuestReflectionSchema,
     ensureReflectionModerationSchema,
+    ensureRhythmBeatmapSchema,
 } = require('./services/schemaService');
 
 const app = express();
@@ -85,6 +86,7 @@ async function startServer() {
         await sequelize.sync();
         await ensureGuestReflectionSchema(sequelize);
         await ensureReflectionModerationSchema(sequelize);
+        await ensureRhythmBeatmapSchema(sequelize);
         console.log('Database connected successfully');
 
         app.listen(PORT, () => {

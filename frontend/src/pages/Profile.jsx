@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import CreatorPageShell from '../components/CreatorPageShell'
-import SectionCard from '../components/SectionCard'
+import CreatorProfile from '../components/profile/CreatorProfile'
 import MemoryEditModal from '../components/profile/MemoryEditModal'
 import ProfileBadges from '../components/profile/ProfileBadges'
 import ProfileHero from '../components/profile/ProfileHero'
@@ -14,6 +13,14 @@ import { deleteReflection, getMyReflections, updateReflection } from '../service
 import { getMyScores } from '../services/scoreService'
 
 export default function Profile() {
+  const { user } = useAuth()
+
+  if (user.role === 'CREATOR') return <CreatorProfile />
+
+  return <RegisteredProfile />
+}
+
+function RegisteredProfile() {
   const { token, user } = useAuth()
   const [badges, setBadges] = useState([])
   const [memories, setMemories] = useState([])
@@ -71,7 +78,6 @@ export default function Profile() {
     catch (error) { setFeedback(error.message) }
   }
 
-  if (user.role === 'CREATOR') return <CreatorPageShell breadcrumbs={['Profile']} description="Creator account details." title="Profile"><SectionCard title="Creator profile"><p>{user.name}</p><p>{user.email}</p></SectionCard></CreatorPageShell>
   if (Object.values(loading).every(Boolean)) return <ProfileSkeleton />
 
   return <div className="profile-page">

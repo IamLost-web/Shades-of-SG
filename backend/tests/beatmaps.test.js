@@ -34,6 +34,10 @@ async function publish(difficulty = 'MEDIUM') {
   return request(app).put(`/api/songs/${song.id}/beatmaps/${difficulty}/publish`).set(auth(creator))
 }
 
+async function generateAll(mode = 'BASIC') {
+  return request(app).post(`/api/songs/${song.id}/beatmaps/generate-all`).set(auth(creator)).send({ mode })
+}
+
 test('creator-only generation creates a DRAFT beatmap', async () => {
   expect((await request(app).post(`/api/songs/${song.id}/beatmaps/generate`).send({ difficulty: 'MEDIUM' })).status).toBe(401)
   expect((await request(app).post(`/api/songs/${song.id}/beatmaps/generate`).set(auth(player)).send({ difficulty: 'MEDIUM' })).status).toBe(403)
@@ -68,6 +72,23 @@ test('publishing exposes the selected DRAFT to public gameplay', async () => {
   const publicResponse = await request(app).get(`/api/songs/${song.id}/beatmaps/medium`)
   expect(publicResponse.status).toBe(200)
   expect(publicResponse.body.beatmap).toMatchObject({ status: 'PUBLISHED', songId: song.id })
+})
+
+test('a published beatmap stays private until its parent song is published', async () => {
+  const privateSong = await Song.create({ creatorId: creator.id, durationSecs: 30, status: 'READY', title: 'Private Parent Song' })
+  await RhythmBeatmap.create({
+    difficulty: 'EASY', durationMs: 30000, generationSource: 'FALLBACK', notes,
+    publishedAt: new Date(), songId: privateSong.id, status: 'PUBLISHED', version: 1,
+  })
+
+  expect((await request(app).get(`/api/songs/${privateSong.id}/beatmaps`)).status).toBe(404)
+  expect((await request(app).get(`/api/songs/${privateSong.id}/beatmaps/easy`)).status).toBe(404)
+  const creatorSummary = await request(app).get(`/api/songs/${privateSong.id}/beatmaps`).set(auth(creator))
+  expect(creatorSummary.status).toBe(200)
+  expect(creatorSummary.body.beatmaps.find((row) => row.difficulty === 'EASY').status).toBe('PUBLISHED')
+
+  await RhythmBeatmap.destroy({ where: { songId: privateSong.id } })
+  await privateSong.destroy()
 })
 
 test('unpublishing removes public availability but keeps creator draft access', async () => {
@@ -112,6 +133,17 @@ test('basic generation creates a deterministic FALLBACK draft', async () => {
   const response = await generate('HARD', 'BASIC')
   expect(response.status).toBe(201)
   expect(response.body.beatmap).toMatchObject({ generationSource: 'FALLBACK', status: 'DRAFT' })
+})
+
+test('generate all creates distinct EASY, MEDIUM, and HARD drafts sequentially', async () => {
+  const response = await generateAll()
+  expect(response.status).toBe(201)
+  expect(response.body.failed).toEqual([])
+  expect(response.body.beatmaps.map((beatmap) => beatmap.difficulty)).toEqual(['EASY', 'MEDIUM', 'HARD'])
+  const noteCounts = Object.fromEntries(response.body.beatmaps.map((beatmap) => [beatmap.difficulty, beatmap.notes.length]))
+  expect(noteCounts.MEDIUM).toBeGreaterThan(noteCounts.EASY)
+  expect(noteCounts.HARD).toBeGreaterThan(noteCounts.MEDIUM)
+  expect(await RhythmBeatmap.count({ where: { songId: song.id, status: 'DRAFT' } })).toBe(3)
 })
 
 test('summary is public-safe and a song remains usable without any rhythm game', async () => {

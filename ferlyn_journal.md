@@ -3616,3 +3616,111 @@ The final workflow is therefore:
 The rhythm game is now a polished four-lane activity backed by creator-managed persistent charts. It supports taps, holds, timing judgements, weighted accuracy, controlled combo scoring, pause/resume/restart, touch and keyboard input, registered score persistence, guest local behavior, AI-assisted generation, deterministic basic generation, creator preview, safe timing adjustment, explicit publication, and published-only public play.
 
 The feature remains optional for every song. Public gameplay never generates data, never sees draft calibration, and never changes chart timing. Creators can develop a replacement draft without interrupting the live rhythm game, and preview sessions remain separate from player statistics.
+
+---
+
+## 2026-07-13 — Creator Profile, Full-Song Beatmaps, Media Uploads, and Publishing Guidance
+
+### AI Tool Used
+
+OpenAI Codex was used for repository inspection, implementation support, debugging, test updates, and database-state diagnosis. Ferlyn supplied the screenshots, console output, product requirements, and iterative UX decisions.
+
+### Objective
+
+Refine Violet's creator profile and resolve several connected Creator Studio and public rhythm-game issues: failed beatmap generation, charts ending before the song, publication visibility, MP4 uploads, desktop preview sizing, and unclear publishing errors.
+
+### Prompt Summary and Ferlyn's Decisions
+
+Ferlyn directed the following changes:
+
+- reuse the public-profile visual language for Violet's creator profile while making it feel creator-specific;
+- strengthen creator statistics, fix stretched song artwork, improve the community empty state, and add a memorable creator quote;
+- keep one clear `Generate All` action and remove the two redundant beatmap generation buttons;
+- generate Easy, Medium, and Hard charts separately and make note counts depend on song duration and difficulty;
+- ensure rhythm charts continue through the full song instead of stopping after a fixed small number of notes;
+- show rhythm content publicly only after the parent song is fully published;
+- expose each published difficulty as its own playable choice on public and registered-user pages;
+- allow MP4 media uploads in addition to MP3 and WAV files;
+- make the creator rhythm preview fit normal desktop screens more reliably;
+- replace raw backend publishing errors with human-readable, short-lived feedback;
+- show missing publishing requirements in a modal and guide the creator to the relevant Studio step;
+- when no final video exists, let the creator choose between generating a video and uploading one.
+
+### AI Contribution
+
+Codex inspected the frontend, backend, database models, API routes, and tests, then implemented and refined:
+
+- a dedicated Violet creator-profile component and accompanying profile styling and tests;
+- schema repair support for the rhythm beatmap table and published-state fields;
+- sequential all-difficulty beatmap generation with clearer partial-failure handling;
+- duration-aware AI beatmap requirements, including difficulty-based note density and coverage near the end of each song;
+- responsive rhythm-game layout and creator-preview controls;
+- public rhythm listings that require a published parent song and present published difficulties separately;
+- backend and frontend MP4 acceptance for song media;
+- a dedicated final-video upload service and route;
+- a publishing-readiness modal with generate-video, upload-video, and redirect actions;
+- transient draft-save error handling and clearer creator-facing messages.
+
+### My Review and Decisions
+
+I reviewed the changes through repeated browser screenshots and console output. I clarified that publishing a beatmap alone must not make it public, because the parent song remains the authoritative publication gate. I also confirmed that each song needs a different number of notes based on its duration and chosen difficulty, rather than using one fixed chart size for every song.
+
+I chose to keep rhythm gameplay optional while requiring any public rhythm entry to have both a published song and at least one published difficulty. I also requested a choice between AI generation and manual MP4 upload instead of forcing creators through only one final-video workflow.
+
+### Files Created
+
+- `backend/migrations/009_rhythm_beatmap_published_at.sql`
+- `frontend/src/components/profile/CreatorProfile.jsx`
+- `frontend/src/components/studio/PublishReadinessModal.jsx`
+- `frontend/src/components/studio/PublishReadinessModal.test.jsx`
+
+### Files Modified
+
+- `backend/controllers/beatmapController.js`
+- `backend/controllers/songController.js`
+- `backend/routes/songs.js`
+- `backend/server.js`
+- `backend/services/aiStorageService.js`
+- `backend/services/beatmapGenerator.js`
+- `backend/services/schemaService.js`
+- `backend/tests/beatmapServices.test.js`
+- `backend/tests/beatmaps.test.js`
+- `backend/tests/songLifecycle.test.js`
+- `frontend/src/App.css`
+- `frontend/src/App.test.jsx`
+- `frontend/src/Profile.css`
+- `frontend/src/components/RhythmGame.jsx`
+- `frontend/src/components/RhythmGame.test.jsx`
+- `frontend/src/components/studio/RhythmBeatmapPanel.jsx`
+- `frontend/src/components/studio/RhythmBeatmapPanel.test.jsx`
+- `frontend/src/components/studio/SongMediaUpload.jsx`
+- `frontend/src/components/studio/StudioHeader.jsx`
+- `frontend/src/pages/Profile.jsx`
+- `frontend/src/pages/Profile.test.jsx`
+- `frontend/src/pages/RhythmHub.jsx`
+- `frontend/src/pages/SongExperience.jsx`
+- `frontend/src/pages/Studio.jsx`
+- `frontend/src/services/songService.js`
+- `ferlyn_journal.md`
+
+### Verification Performed
+
+The implemented changes were checked with the backend Jest suite, frontend Vitest suite, backend and frontend ESLint, the Vite production build, and `git diff --check`. The last complete verification run passed seventy-five backend tests and eighty-five frontend tests, with both lint commands and the production build also passing.
+
+A read-only database diagnostic was also performed for the affected `Sailor Song` record. It confirmed that the newly uploaded MP4 was saved under `audioUrl`, while `videoUrl` still pointed to the older placeholder video. No credentials or secret values were recorded.
+
+### Final Outcome
+
+The branch now contains a more polished Violet creator profile, stronger rhythm chart generation and validation, safer public publication rules, separate public difficulty choices, MP4-compatible media handling, a responsive creator rhythm preview, and a guided publishing-readiness flow.
+
+### Remaining Work
+
+- Correct the final Preview & Publish media-source priority so a newly uploaded MP4 replaces the stale placeholder preview instead of being hidden by the older `videoUrl`.
+- Ensure the HTML video element reloads whenever its source changes.
+- Re-run the focused Studio preview tests after that media-source correction.
+- Apply migration `009_rhythm_beatmap_published_at.sql` to the intended deployed database after confirming its migration state.
+- Complete real-browser testing for upload, generation, publication, and public playback using representative full-length songs.
+
+### Lesson
+
+Audio upload, final-video upload, AI generation, and public publication are separate lifecycle states even when they use the same MP4 file type. The UI must identify which state a file updates and must always preview the newest intended media source; otherwise a successful upload can appear to have failed because an older URL still has precedence.

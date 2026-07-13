@@ -1,7 +1,7 @@
-import { Music4, Play, RefreshCw, Sparkles, Trash2, Upload, VolumeX } from 'lucide-react'
+import { Music4, Play, Sparkles, Trash2, Upload, VolumeX } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { deleteBeatmapDraft, generateAllBeatmaps, generateBeatmap, getBeatmapSummary, publishBeatmap, saveBeatmapSettings, unpublishBeatmap } from '../../services/beatmapService'
+import { deleteBeatmapDraft, generateAllBeatmaps, getBeatmapSummary, publishBeatmap, saveBeatmapSettings, unpublishBeatmap } from '../../services/beatmapService'
 
 const DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD']
 const EMPTY = DIFFICULTIES.map((difficulty) => ({ difficulty, bpm: null, draft: null, failed: null, generatedAt: null, generationSource: null, holdNoteCount: 0, noteCount: 0, offsetMs: 0, published: null, status: 'NOT_CREATED', version: 0 }))
@@ -13,7 +13,7 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-export default function RhythmBeatmapPanel({ songId, token }) {
+export default function RhythmBeatmapPanel({ songId, songStatus = 'DRAFT', token }) {
   const [beatmaps, setBeatmaps] = useState(EMPTY)
   const [selectedDifficulty, setSelectedDifficulty] = useState('MEDIUM')
   const [offsets, setOffsets] = useState({})
@@ -53,10 +53,6 @@ export default function RhythmBeatmapPanel({ songId, token }) {
     finally { setActiveRequest('') }
   }
 
-  function runGeneration(mode) {
-    return perform(`${selectedDifficulty}:${mode}`, () => generateBeatmap(songId, selectedDifficulty, token, mode))
-  }
-
   function saveOffset(offsetMs = draftOffset) {
     return perform(`${selectedDifficulty}:SETTINGS`, () => saveBeatmapSettings(songId, selectedDifficulty, offsetMs, token))
   }
@@ -70,6 +66,7 @@ export default function RhythmBeatmapPanel({ songId, token }) {
 
       {!songId ? <p className="studio-beatmap-panel__notice">Save this song draft before creating its optional rhythm game.</p> : null}
       {!loading && songId && beatmaps.every((row) => row.status === 'NOT_CREATED') ? <p className="studio-beatmap-panel__notice">No rhythm game has been created for this song.</p> : null}
+      {!loading && beatmaps.some((row) => row.published) && songStatus !== 'PUBLISHED' ? <p className="studio-beatmap-panel__notice">Published beatmaps remain private until this song is fully published.</p> : null}
       {loading ? <p role="status">Loading beatmap status…</p> : null}
       {error ? <div className="studio-beatmap-panel__error" role="alert"><strong>Beatmap action could not be completed.</strong><span>{error}</span></div> : null}
       {message ? <p className="studio-beatmap-panel__success" role="status">{message}</p> : null}
@@ -91,11 +88,6 @@ export default function RhythmBeatmapPanel({ songId, token }) {
       </div>}
 
       {selected.failed?.errorMessage ? <p className="studio-beatmap-panel__warning">{selected.failed.errorMessage}</p> : null}
-
-      <div className="studio-beatmap-generation-actions">
-        <button className="studio-button studio-button--primary" disabled={!songId || busy} onClick={() => runGeneration('AI')} type="button"><Sparkles aria-hidden="true" /> {activeRequest === `${selectedDifficulty}:AI` ? 'Generating…' : selected.draft ? 'Regenerate with AI' : 'Generate with AI'}</button>
-        <button className="studio-button studio-button--secondary" disabled={!songId || busy} onClick={() => runGeneration('BASIC')} type="button"><RefreshCw aria-hidden="true" /> {activeRequest === `${selectedDifficulty}:BASIC` ? 'Generating…' : 'Generate Basic Beatmap'}</button>
-      </div>
 
       <fieldset className="studio-beatmap-offset" disabled={!selected.draft || busy}>
         <legend>Draft timing</legend>

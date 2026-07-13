@@ -151,7 +151,19 @@ async function generateAllBeatmaps(req, res, next) {
     const song = await ownedPlayableSong(req, res)
     if (!song) return undefined
     const mode = String(req.body?.mode || 'AI').toUpperCase()
-    const settled = await Promise.allSettled(DIFFICULTIES.map((difficulty) => generateForSong(song, difficulty, mode)))
+    if (!['AI', 'BASIC'].includes(mode)) return res.status(400).json({ message: 'mode must be AI or BASIC' })
+
+    // SQLite uses one write connection in local development. Running three
+    // transactions concurrently makes them collide, so generate each distinct
+    // difficulty in order while still collecting partial failures.
+    const settled = []
+    for (const difficulty of DIFFICULTIES) {
+      try {
+        settled.push({ status: 'fulfilled', value: await generateForSong(song, difficulty, mode) })
+      } catch (error) {
+        settled.push({ reason: error, status: 'rejected' })
+      }
+    }
     const beatmaps = settled.filter((result) => result.status === 'fulfilled').map((result) => publicBeatmap(result.value))
     const failed = settled.flatMap((result, index) => result.status === 'rejected' ? [DIFFICULTIES[index]] : [])
     return res.status(failed.length ? 207 : 201).json({ beatmaps, failed, message: failed.length ? `Generation failed for: ${failed.join(', ')}` : 'All beatmap drafts generated.' })

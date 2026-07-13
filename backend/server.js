@@ -13,6 +13,8 @@ const { seedCreatorAccount } = require('./services/authService');
 const {
     ensureGuestReflectionSchema,
     ensureReflectionModerationSchema,
+    ensureSongSchema,
+    ensureGenerationJobSchema
 } = require('./services/schemaService');
 
 const app = express();
@@ -71,9 +73,11 @@ app.use(errorHandler);
 async function startServer() {
     try {
         await sequelize.authenticate();
-        await sequelize.sync({ alter: true });
+        await sequelize.sync();
         await ensureGuestReflectionSchema(sequelize);
         await ensureReflectionModerationSchema(sequelize);
+        await ensureSongSchema(sequelize);
+        await ensureGenerationJobSchema(sequelize);
         await seedCreatorAccount();
 
         console.log('Database connected successfully');

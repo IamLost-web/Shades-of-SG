@@ -64,6 +64,7 @@ export default function Studio() {
     configured: null,
     error: '',
   })
+  const [transcriptionSegments, setTranscriptionSegments] = useState([])
   const [lastSavedAt, setLastSavedAt] = useState(null)
 
   useEffect(() => {
@@ -156,6 +157,7 @@ export default function Studio() {
 
   function resetLyricsExtraction() {
     setLyrics('')
+    setTranscriptionSegments([])
     setExtractionError('')
     setExtractionStatus('idle')
   }
@@ -292,6 +294,7 @@ export default function Studio() {
         }
 
         setLyrics(data.lyrics || '')
+        if (data.segments) setTranscriptionSegments(data.segments)
         setExtractionStatus('success')
         return
       }
@@ -317,6 +320,7 @@ export default function Studio() {
       }
 
       setLyrics(data.lyrics || '')
+      if (data.segments) setTranscriptionSegments(data.segments)
       setExtractionStatus('success')
     } catch (error) {
       setExtractionError(error.message)
@@ -334,9 +338,39 @@ export default function Studio() {
     navigate('/creator/generation')
   }
 
-  function handlePublishSong() {
-    window.alert('Song published successfully')
-    navigate('/creator/songs')
+  async function handlePublishSong() {
+    try {
+      const payload = new FormData()
+      payload.append('title', formData.title)
+      payload.append('artist', formData.artist)
+      payload.append('theme', formData.theme)
+      payload.append('description', formData.description)
+      payload.append('lyrics', lyrics)
+      payload.append('rawLyrics', lyrics)
+      payload.append('transcriptionSegments', JSON.stringify(transcriptionSegments))
+      
+      if (formData.youtubeLink) {
+        payload.append('youtubeUrl', formData.youtubeLink)
+      } else if (selectedMediaFile) {
+        payload.append('audio', selectedMediaFile)
+      }
+
+      const response = await fetch(`${API_BASE_URL}/songs/upload`, {
+        method: 'POST',
+        // Omit Content-Type so browser sets boundary for FormData
+        body: payload
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(getApiErrorMessage(errorData, 'Failed to publish song'))
+      }
+
+      window.alert('Song published successfully')
+      navigate('/creator/songs')
+    } catch (err) {
+      window.alert(`Error publishing song: ${err.message}`)
+    }
   }
 
   function handleNextStep() {

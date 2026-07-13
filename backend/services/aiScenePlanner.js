@@ -1,6 +1,5 @@
 const { OpenAI } = require('openai')
 const { Song, GenerationJob, SceneSegment } = require('../models')
-const { transcribeMediaBuffer } = require('./transcriptionService')
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -9,38 +8,18 @@ const openai = new OpenAI({
 async function generateScenePlan(jobId, songId) {
   try {
     const job = await GenerationJob.findByPk(jobId)
-    if (!job) throw new Error(`GenerationJob with ID ${jobId} not found.`)
-    if (job.status !== 'IN_PROGRESS') throw new Error(`GenerationJob is in state '${job.status}', expected 'IN_PROGRESS'.`)
+    if (!job) {
+      throw new Error(`GenerationJob with ID ${jobId} not found.`)
+    }
+    if (job.status !== 'PROCESSING') {
+      throw new Error(`GenerationJob is in state '${job.status}', expected 'PROCESSING'.`)
+    }
 
     const song = await Song.findByPk(songId)
     if (!song) throw new Error(`Song with ID ${songId} not found.`)
     
-    let rawSegments = []
-    
-    // Attempt to transcribe the audio to get exact segments
-    if (song.audioUrl) {
-      console.log(`[aiScenePlanner] Transcribing audio for song ${song.id} to get segment timings...`);
-      try {
-        const audioRes = await fetch(song.audioUrl);
-        if (audioRes.ok) {
-          const arrayBuffer = await audioRes.arrayBuffer();
-          const mediaBuffer = Buffer.from(arrayBuffer);
-          const transcription = await transcribeMediaBuffer({
-            fileName: 'audio.mp4',
-            mediaBuffer,
-            mimeType: 'audio/mp4'
-          });
-          if (transcription && transcription.segments && transcription.segments.length > 0) {
-            rawSegments = transcription.segments;
-            console.log(`[aiScenePlanner] Successfully extracted ${rawSegments.length} raw Whisper segments.`);
-          }
-        } else {
-          console.warn(`[aiScenePlanner] Failed to fetch audioUrl: ${audioRes.statusText}`);
-        }
-      } catch (err) {
-        console.warn(`[aiScenePlanner] Error during on-the-fly transcription:`, err);
-      }
-    }
+    // Read pre-extracted timings instead of re-transcribing audio on the fly!
+    let rawSegments = song.transcriptionSegments || []
     
     let systemPrompt, userMessage;
     
@@ -85,7 +64,7 @@ For each scene block, your visualPrompt must specify:
 Artist: ${song.artist}
 Theme: ${song.theme || 'N/A'}
 True Lyrics:
-${song.lyrics || 'No lyrics provided.'}
+${song.rawLyrics || song.lyrics || 'No lyrics provided.'}
 
 Raw Whisper Transcription Segments (USE THESE ONLY FOR TIMING, THEY MAY CONTAIN ERRORS):
 ${segmentsStr}`
@@ -123,7 +102,7 @@ CRITICAL: The entire output must be valid, parseable JSON. Do not include unesca
 Artist: ${song.artist}
 Theme: ${song.theme || 'N/A'}
 Lyrics:
-${(song.lyrics || 'No lyrics provided.').replace(/bathroom/gi, 'living room')}`
+${song.rawLyrics || song.lyrics || 'No lyrics provided.'}`
     }
 
     const response = await openai.chat.completions.create({

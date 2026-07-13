@@ -34,9 +34,15 @@ const Song = sequelize.define('Song', {
         defaultValue: [],
         field: 'mood_tags',
     },
-    lyrics: {
+    rawLyrics: {
         type: DataTypes.TEXT,
         allowNull: true,
+        field: 'raw_lyrics',
+    },
+    transcriptionSegments: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        field: 'transcription_segments',
     },
     description: {
         type: DataTypes.TEXT,

@@ -5,7 +5,7 @@ const fs = require('fs')
 
 const uploadSong = async (req, res, next) => {
   try {
-    const { title, artist, youtubeUrl, audioUrl, lyrics, theme, description } = req.body
+    const { title, artist, youtubeUrl, audioUrl, lyrics, rawLyrics, transcriptionSegments, theme, description } = req.body
     let creatorId = req.user ? req.user.id : null;
 
     if (!creatorId) {
@@ -63,6 +63,15 @@ const uploadSong = async (req, res, next) => {
       await extractedInfo.cleanup()
     }
 
+    let parsedSegments = null;
+    if (transcriptionSegments) {
+      try {
+        parsedSegments = typeof transcriptionSegments === 'string' ? JSON.parse(transcriptionSegments) : transcriptionSegments;
+      } catch (e) {
+        console.warn('Failed to parse transcriptionSegments', e);
+      }
+    }
+
     // Save to PostgreSQL
     const newSong = await Song.create({
       creatorId,
@@ -70,6 +79,8 @@ const uploadSong = async (req, res, next) => {
       artist: artist || null,
       audioUrl: finalAudioUrl,
       lyrics: lyrics || null,
+      rawLyrics: rawLyrics || null,
+      transcriptionSegments: parsedSegments,
       theme: theme || null,
       description: description || null,
       status: 'DRAFT',

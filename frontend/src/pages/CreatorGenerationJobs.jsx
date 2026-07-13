@@ -101,37 +101,19 @@ export default function CreatorGenerationJobs() {
     </div>
 
     {loading ? <p role="status">Loading generation tasks…</p> : null}
-    {!loading && !error && filteredJobs.length === 0 ? (
-      <EmptyState description={`No ${filter.toLowerCase()} tasks found.`} title="No tasks found" />
-    ) : (
-      <div className="creator-song-browser">
-        <div className="creator-song-browser__list">
-          {!loading && !error && filteredJobs.map((job) => (
-            <article key={job.id} className="dashboard-song-item creator-song-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div className="dashboard-song-art" aria-hidden="true">🎵</div>
-                <div className="dashboard-song-copy">
-                  <h3>{job.song?.title || job.Song?.title || 'Unknown Song'}</h3>
-                  <p className="text-xs text-slate-500 mb-1">{job.song?.artist || job.Song?.artist || 'Unknown Artist'}</p>
-                  <GenerationStatusBadge status={job.status} />
-                  {job.status === 'FAILED' && job.errorMessage ? <p className="studio-workflow-message is-error">{job.errorMessage}</p> : null}
-                  {job.status.toLowerCase() === 'processing' && (
-                    <div className="dashboard-song-progress" style={{ marginTop: '0.5rem' }}>
-                      <div className="progress-track"><span style={{ width: `${job.progress || 0}%` }} /></div>
-                      <small>{job.progress || 0}%</small>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="creator-song-actions">
-                <button className="studio-button studio-button--secondary" onClick={() => navigate(`/creator/generation/${job.id}`)} type="button">
-                  View Status
-                </button>
-              </div>
-            </article>
-          ))}
+    {!loading && filteredJobs.length === 0 ? <EmptyState description="Start generation from a saved Studio draft." title="No generation jobs found" /> : null}
+    {!loading && filteredJobs.length > 0 ? <div className="creator-song-browser__list">
+      {filteredJobs.map((job) => <article className="dashboard-song-item creator-song-row" key={job.id}>
+        <div className="dashboard-song-copy">
+          <h3>{job.song?.title || 'Untitled song'}</h3>
+          <p>{job.song?.artist || 'Artist not set'}</p>
+          <GenerationStatusBadge status={job.status} />
+          {job.status === 'FAILED' && job.errorMessage ? <p className="studio-workflow-message is-error">{job.errorMessage}</p> : null}
         </div>
-      </div>
-    )}
+        <div className="creator-song-actions">
+          <button className="studio-button studio-button--secondary" onClick={() => navigate(`/creator/generation/${job.id}`)} type="button">View Status</button>
+        </div>
+      </article>)}
+    </div> : null}
   </CreatorPageShell>
 }

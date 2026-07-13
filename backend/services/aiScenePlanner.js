@@ -80,7 +80,7 @@ You must return ONLY a JSON object with a "scenes" array following this exact sc
 }
 CRITICAL: The entire output must be valid, parseable JSON. Do not include unescaped quotes or literal newline characters inside strings.`
 
-      let segmentsStr = rawSegments.map((s) => 
+      let segmentsStr = rawSegments.map((s, i) => 
         `[${s.start.toFixed(2)}s - ${s.end.toFixed(2)}s]: ${s.text.trim()}`
       ).join('\n');
 
@@ -123,7 +123,7 @@ CRITICAL: The entire output must be valid, parseable JSON. Do not include unesca
 Artist: ${song.artist}
 Theme: ${song.theme || 'N/A'}
 Lyrics:
-${(song.rawLyrics || 'No lyrics provided.').replace(/bathroom/gi, 'living room')}`
+${song.rawLyrics || 'No lyrics provided.'}`
     }
 
     const response = await openai.chat.completions.create({

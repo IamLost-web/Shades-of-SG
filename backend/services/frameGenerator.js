@@ -130,7 +130,7 @@ async function generateFrames(jobId, songId) {
               openAiImageUrl = fallbackResponse.data?.[0]?.url || fallbackResponse.data?.[0]?.image_url || fallbackResponse.data?.[0]?.asset_url || fallbackResponse.data?.[0]?.link;
               if (!openAiImageUrl && typeof fallbackResponse.data?.[0] === 'string') openAiImageUrl = fallbackResponse.data[0];
             }
-            if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI fallback response: ${JSON.stringify(fallbackResponse.data)}`, { cause: openaiError });
+            if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI fallback response: ${JSON.stringify(fallbackResponse.data)}`);
           } catch (ultimateError) {
             console.warn(`[Ultimate Fallback] OpenAI generation failed completely (${ultimateError.message}). Using placeholder image to prevent FFmpeg crash.`)
             openAiImageUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024&h=1024&fit=crop'

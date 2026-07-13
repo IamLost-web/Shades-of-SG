@@ -13,6 +13,8 @@ const generationRouter = require('./routes/aiGeneration');
 const {
     ensureGuestReflectionSchema,
     ensureReflectionModerationSchema,
+    ensureSongSchema,
+    ensureGenerationJobSchema
 } = require('./services/schemaService');
 
 const app = express();
@@ -83,6 +85,8 @@ async function startServer() {
         await sequelize.sync();
         await ensureGuestReflectionSchema(sequelize);
         await ensureReflectionModerationSchema(sequelize);
+        await ensureSongSchema(sequelize);
+        await ensureGenerationJobSchema(sequelize);
         console.log('Database connected successfully');
 
         app.listen(PORT, () => {

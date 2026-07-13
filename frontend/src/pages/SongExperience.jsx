@@ -3,7 +3,6 @@ import { useParams, Link } from 'react-router-dom'
 import { PlayCircle, Square } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import useInstrumentAudio from '../hooks/useInstrumentAudio'
-import { getPublishedSong } from '../services/publicSongService'
 import './SongExperience.css'
 
 const MOCK_SONG_DATA = {
@@ -110,7 +109,7 @@ const MOCK_SONG_DATA = {
       ],
       origin: 'Indian heritage, South Asia',
       waveform: 'sine',
-    },
+    }
   ],
   trivia: [
     {
@@ -175,31 +174,6 @@ function formatTime(seconds) {
 
 export default function SongExperience() {
   const { id = 'demo-song' } = useParams()
-  
-  const [dbSong, setDbSong] = useState(null)
-  const [loadingDbSong, setLoadingDbSong] = useState(id !== 'demo-song')
-  const [dbError, setDbError] = useState('')
-
-  useEffect(() => {
-    if (id === 'demo-song') {
-      return
-    }
-    let active = true
-    getPublishedSong(id)
-      .then((data) => active && setDbSong(data))
-      .catch((err) => active && setDbError(err.message))
-      .finally(() => active && setLoadingDbSong(false))
-    return () => { active = false }
-  }, [id])
-
-  const songData = dbSong ? {
-    ...MOCK_SONG_DATA,
-    title: dbSong.title || MOCK_SONG_DATA.title,
-    artist: dbSong.artist || MOCK_SONG_DATA.artist,
-    videoUrl: dbSong.videoUrl || MOCK_SONG_DATA.videoUrl,
-    culturalSummary: dbSong.description || MOCK_SONG_DATA.culturalSummary,
-    coverImageUrl: dbSong.coverImageUrl || undefined,
-  } : MOCK_SONG_DATA
 
   // Video state
   const videoRef = useRef(null)
@@ -215,61 +189,57 @@ export default function SongExperience() {
 
   // Instrument audio state
   const { playNote } = useInstrumentAudio()
+  const melodyTimeoutsRef = useRef([])
   const [playingInstrumentId, setPlayingInstrumentId] = useState(null)
-  const melodyTimeouts = useRef([])
-
-  function stopSyntheticMelody() {
-    melodyTimeouts.current.forEach(clearTimeout)
-    melodyTimeouts.current = []
-    setPlayingInstrumentId(null)
-  }
 
   useEffect(() => {
     return () => {
-      melodyTimeouts.current.forEach(clearTimeout)
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      melodyTimeoutsRef.current.forEach(clearTimeout)
     }
   }, [])
 
   function handlePlayMelody(instrument) {
+    melodyTimeoutsRef.current.forEach(clearTimeout)
+    melodyTimeoutsRef.current = []
+
     if (playingInstrumentId === instrument.id) {
-      stopSyntheticMelody()
+      setPlayingInstrumentId(null)
       return
     }
-    
-    stopSyntheticMelody()
 
-    // pause main video if it's playing
     if (isPlaying) {
       videoRef.current?.pause()
       setIsPlaying(false)
     }
-    
+
     setPlayingInstrumentId(instrument.id)
-    // Mimic the sequence logic from InstrumentPlayer
+
     instrument.melody.forEach((noteLabel, index) => {
-      const note = instrument.notes.find((candidate) => candidate.label === noteLabel)
-      if (!note) return
-      
-      const timeoutId = setTimeout(() => {
-        playNote(instrument, note)
-        
-        // Clear active state when the melody finishes
-        if (index === instrument.melody.length - 1) {
-          const resetTimeout = setTimeout(() => {
-            setPlayingInstrumentId((currentId) => currentId === instrument.id ? null : currentId)
-          }, 500)
-          melodyTimeouts.current.push(resetTimeout)
-        }
-      }, index * 260)
-      
-      melodyTimeouts.current.push(timeoutId)
+      const note = instrument.notes.find((n) => n.label === noteLabel)
+      if (note) {
+        const timeoutId = setTimeout(() => {
+          playNote(instrument, note)
+          if (index === instrument.melody.length - 1) {
+            const finishTimeout = setTimeout(() => setPlayingInstrumentId(null), 400)
+            melodyTimeoutsRef.current.push(finishTimeout)
+          }
+        }, index * 260)
+        melodyTimeoutsRef.current.push(timeoutId)
+      }
     })
   }
 
-  const currentQuestion = songData.trivia[questionIndex]
+  const currentQuestion = MOCK_SONG_DATA.trivia[questionIndex]
+  const progress = duration ? (currentTime / duration) * 100 : 0
 
   async function togglePlay() {
     if (!videoRef.current) return
+
+    melodyTimeoutsRef.current.forEach(clearTimeout)
+    melodyTimeoutsRef.current = []
+    setPlayingInstrumentId(null)
+
     if (!videoRef.current.paused) {
       videoRef.current.pause()
       setIsPlaying(false)
@@ -299,7 +269,7 @@ export default function SongExperience() {
 
     setTimeout(() => {
       setSelectedAnswer(null)
-      if (questionIndex + 1 < songData.trivia.length) {
+      if (questionIndex + 1 < MOCK_SONG_DATA.trivia.length) {
         setQuestionIndex((prev) => prev + 1)
       } else {
         setQuizCompleted(true)
@@ -341,15 +311,12 @@ export default function SongExperience() {
     return { ...base, opacity: 0.4 }
   }
 
-  if (loadingDbSong) return <div className="page-stack"><p role="status">Loading published song…</p></div>
-  if (dbError || (!dbSong && id !== 'demo-song')) return <div className="page-stack"><div className="state-box" role="alert">{dbError || 'Published song not found.'}</div><Link to="/songs">Back to Songs</Link></div>
-
   return (
     <div className="page-stack">
       <PageHeader
         eyebrow="Song Experience"
-        title={songData.title}
-        description={`${songData.artist} · ${songData.year} · ${songData.location}`}
+        title={MOCK_SONG_DATA.title}
+        description={`${MOCK_SONG_DATA.artist} · ${MOCK_SONG_DATA.year} · ${MOCK_SONG_DATA.location}`}
       />
 
       {/* ─── Main Two-Column Layout ─── */}
@@ -363,17 +330,14 @@ export default function SongExperience() {
             <div style={{ position: 'relative', width: '100%' }}>
               <video
                 ref={videoRef}
-                src={songData.videoUrl}
+                src={MOCK_SONG_DATA.videoUrl}
                 playsInline
                 onClick={togglePlay}
                 onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
                 onLoadedMetadata={(e) => { setDuration(e.currentTarget.duration); setCurrentTime(0) }}
                 onEnded={() => { setIsPlaying(false); setCurrentTime(0) }}
                 onPause={() => setIsPlaying(false)}
-                onPlay={() => {
-                  setIsPlaying(true)
-                  stopSyntheticMelody()
-                }}
+                onPlay={() => setIsPlaying(true)}
                 style={{ display: 'block', width: '100%', aspectRatio: '16/9', objectFit: 'cover', cursor: 'pointer', background: '#000' }}
               />
             </div>
@@ -418,12 +382,12 @@ export default function SongExperience() {
 
           {/* Title + Tags (below player) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>{songData.title}</h2>
+            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>{MOCK_SONG_DATA.title}</h2>
             <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9rem' }}>
-              {songData.artist} · {songData.year} · {songData.location}
+              {MOCK_SONG_DATA.artist} · {MOCK_SONG_DATA.year} · {MOCK_SONG_DATA.location}
             </p>
             <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
-              {songData.tags.map((tag, i) => (
+              {MOCK_SONG_DATA.tags.map((tag, i) => (
                 <span key={i} style={{ padding: '5px 14px', borderRadius: '6px', border: '1px solid var(--line)', background: 'rgba(30, 41, 59, 0.6)', color: 'var(--muted)', fontSize: '0.75rem' }}>
                   {tag}
                 </span>
@@ -438,7 +402,7 @@ export default function SongExperience() {
               About This Song
             </h3>
             <p style={{ margin: 0, color: 'var(--muted)', lineHeight: 1.7, fontSize: '0.9rem' }}>
-              {songData.culturalSummary}
+              {MOCK_SONG_DATA.culturalSummary}
             </p>
           </div>
         </div>
@@ -452,7 +416,7 @@ export default function SongExperience() {
               Featured Instruments
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              {songData.instruments.map((inst, i) => {
+              {MOCK_SONG_DATA.instruments.map((inst, i) => {
                 const isInstPlaying = playingInstrumentId === inst.id
                 return (
                   <button
@@ -498,7 +462,7 @@ export default function SongExperience() {
                 </div>
                 <div>
                   <h3 style={{ margin: '0 0 8px', fontSize: '1.25rem' }}>Quiz Completed!</h3>
-                  <p style={{ margin: 0, color: 'var(--muted)' }}>You scored {score} out of {songData.trivia.length}</p>
+                  <p style={{ margin: 0, color: 'var(--muted)' }}>You scored {score} out of {MOCK_SONG_DATA.trivia.length}</p>
                 </div>
                 <button
                   onClick={() => { setQuizCompleted(false); setQuestionIndex(0); setScore(0); }}
@@ -512,7 +476,7 @@ export default function SongExperience() {
             ) : (
               <>
                 <p style={{ margin: 0, color: 'var(--violet)', fontSize: '0.75rem', fontWeight: 600 }}>
-                  Knowledge Check ({questionIndex + 1}/{songData.trivia.length})
+                  Knowledge Check ({questionIndex + 1}/{MOCK_SONG_DATA.trivia.length})
                 </p>
                 <h3 style={{ margin: 0, fontSize: '1rem', lineHeight: 1.5 }}>
                   {currentQuestion.question}

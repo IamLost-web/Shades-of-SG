@@ -211,8 +211,7 @@ async function assembleVideo(jobId, songId) {
     return {
       success: true,
       jobId,
-      videoUrl: uploadResult.videoUrl,
-      videoPublicId: uploadResult.videoPublicId,
+      videoUrl: uploadResult,
     }
   } catch (error) {
     // Graceful Failures (Error Boundary)

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import LyricsCard from '../components/studio/LyricsCard'
 import LivePreviewCard from '../components/studio/LivePreviewCard'
 import MetadataStepper from '../components/studio/MetadataStepper'
@@ -90,23 +90,21 @@ export default function Studio() {
   useEffect(() => {
     if (location.state?.songData) {
       const s = location.state.songData;
-      setTimeout(() => {
-        setFormData(curr => ({
-          ...curr,
-          title: s.title || curr.title,
-          artist: s.artist || curr.artist,
-          theme: s.theme || curr.theme,
-        }));
-        if (s.moodTags) setSelectedMoods(s.moodTags);
-        if (s.lyrics) setLyrics(s.lyrics);
-      }, 0);
+      setFormData(curr => ({
+        ...curr,
+        title: s.title || curr.title,
+        artist: s.artist || curr.artist,
+        theme: s.theme || curr.theme,
+      }));
+      if (s.moodTags) setSelectedMoods(s.moodTags);
+      if (s.lyrics) setLyrics(s.lyrics);
       
       const mediaUrl = s.videoUrl || s.audioUrl;
       if (mediaUrl) {
         fetch(mediaUrl)
           .then(res => res.blob())
           .then(blob => {
-            const fileName = s.title ? `${s.title.replace(/\s+/g, '_')}.${s.videoUrl ? 'mp4' : 'mp3'}` : `Exported_Media.${s.videoUrl ? 'mp4' : 'mp3'}`;
+            const fileName = s.title ? `${s.title.replace(/\\s+/g, '_')}.${s.videoUrl ? 'mp4' : 'mp3'}` : `Exported_Media.${s.videoUrl ? 'mp4' : 'mp3'}`;
             const fileType = s.videoUrl ? 'video/mp4' : 'audio/mpeg';
             const file = new File([blob], fileName, { type: blob.type || fileType });
             
@@ -241,118 +239,21 @@ export default function Studio() {
 
   if (isLoading) return <div className="studio-page"><p role="status">Loading saved draft…</p></div>
 
-  return (
-    <div className="studio-page">
-      <StudioHeader
-        activeStep={studioStep}
-        isBusy={isBusy}
-        publishDisabled={!readiness.ready}
-        onBackToLyrics={() => setStudioStep(2)}
-        onGenerateVideo={handleGenerateVideo}
-        onPublishSong={handlePublishSong}
-        onSaveDraft={() => saveDraft().catch(() => {})}
-      />
-      {message.text && (
-        <div className={`studio-workflow-message is-${message.type}`} role={message.type === 'error' ? 'alert' : 'status'}>
-          {message.text}
-        </div>
-      )}
-
-      {studioStep === 3 ? (
-        <section className="studio-form-column">
-          <MetadataStepper activeStep={studioStep} compact onStepChange={setStudioStep} />
-          <PreviewPublishPanel
-            audioSrc={song?.videoUrl || song?.audioUrl || audioPreviewUrl}
-            artist={formData.artist}
-            description={formData.description}
-            duration={audioDuration}
-            languages={previewLanguages}
-            lastSavedLabel={lastSavedLabel}
-            lyrics={lyrics}
-            mediaType={song?.videoUrl ? 'video' : mediaType}
-            moods={selectedMoods}
-            theme={formData.theme}
-            title={formData.title}
-            youtubeLink={formData.youtubeLink}
-          />
-          {!readiness.ready && (
-            <p className="studio-workflow-message is-error">
-              Publishing requirements remaining: {readiness.missing.join(', ') || 'Save the draft to check readiness.'}
-            </p>
-          )}
-        </section>
-      ) : (
-        <section className="studio-main-grid">
-          <div className="studio-form-column">
-            <MetadataStepper activeStep={studioStep} onStepChange={setStudioStep} />
-            {studioStep === 1 ? (
-              <SongInformationCard
-                audioFileName={audioFileName}
-                coverImageUrl={coverImageUrl}
-                descriptionLength={formData.description.length}
-                formData={formData}
-                onAudioFileChange={handleMedia}
-                onAudioFileClear={() => {
-                  setSelectedMediaFile(null)
-                  setAudioFileName('')
-                  setAudioPreviewUrl(song?.audioUrl || '')
-                }}
-                onCoverImageChange={handleCover}
-                onFieldChange={(field, value) => setFormData((current) => ({ ...current, [field]: value }))}
-                onLanguageToggle={(language) =>
-                  setSelectedLanguages((current) =>
-                    current.includes(language) ? current.filter((item) => item !== language) : [...current, language]
-                  )
-                }
-                onMoodToggle={(mood) =>
-                  setSelectedMoods((current) =>
-                    current.includes(mood) ? current.filter((item) => item !== mood) : [...current, mood].slice(0, 5)
-                  )
-                }
-                onOtherLanguageChange={(value) => {
-                  setFormData((current) => ({ ...current, otherLanguage: value }))
-                  if (value.trim()) {
-                    setSelectedLanguages((current) => (current.includes('Others') ? current : [...current, 'Others']))
-                  }
-                }}
-                onYouTubeLinkChange={(value) => setFormData((current) => ({ ...current, youtubeLink: value }))}
-                selectedLanguages={selectedLanguages}
-                selectedMoods={selectedMoods}
-              />
-            ) : (
-              <LyricsCard
-                canExtractLyrics={Boolean(selectedMediaFile || formData.youtubeLink.trim())}
-                extractionError={extractionError}
-                extractionStatus={extractionStatus}
-                lyrics={lyrics}
-                onExtractLyrics={extractLyrics}
-                onLyricsChange={setLyrics}
-                transcriptionStatus={transcriptionStatus}
-                youtubeLink={formData.youtubeLink}
-              />
-            )}
-          </div>
-          <LivePreviewCard
-            artist={formData.artist}
-            audioSrc={song?.audioUrl || audioPreviewUrl}
-            description={formData.description}
-            duration={audioDuration}
-            languages={previewLanguages}
-            mediaType={mediaType}
-            moods={selectedMoods}
-            theme={formData.theme}
-            title={formData.title}
-            youtubeLink={formData.youtubeLink}
-          />
-        </section>
-      )}
-      <StudioFooter
-        activeStep={studioStep}
-        disabled={isBusy || (studioStep === 3 && !readiness.ready)}
-        lastSavedLabel={lastSavedLabel}
-        onNext={() => setStudioStep((step) => Math.min(step + 1, 3))}
-        onPublish={handlePublishSong}
-      />
-    </div>
-  )
+  function handleNextStep() {
+    setStudioStep((current) => Math.min(current + 1, 3))
+  }
+  return <div className="studio-page">
+    <StudioHeader activeStep={studioStep} isBusy={isBusy} publishDisabled={!readiness.ready} onBackToLyrics={() => setStudioStep(2)} onGenerateVideo={handleGenerateVideo} onPublishSong={handlePublishSong} onSaveDraft={() => saveDraft().catch(() => {})} />
+    {message.text && <div className={`studio-workflow-message is-${message.type}`} role={message.type === 'error' ? 'alert' : 'status'}>{message.text}</div>}
+    {studioStep === 3 ? <section className="studio-form-column">
+      <MetadataStepper activeStep={studioStep} compact onStepChange={setStudioStep} />
+      <PreviewPublishPanel audioSrc={song?.videoUrl || song?.audioUrl || audioPreviewUrl} artist={formData.artist} description={formData.description} duration={audioDuration} languages={previewLanguages} lastSavedLabel={lastSavedLabel} lyrics={lyrics} mediaType={song?.videoUrl ? 'video' : mediaType} moods={selectedMoods} theme={formData.theme} title={formData.title} youtubeLink={formData.youtubeLink} />
+      {!readiness.ready && <p className="studio-workflow-message is-error">Publishing requirements remaining: {readiness.missing.join(', ') || 'Save the draft to check readiness.'}</p>}
+    </section> : <section className="studio-main-grid"><div className="studio-form-column">
+      <MetadataStepper activeStep={studioStep} onStepChange={setStudioStep} />
+      {studioStep === 1 ? <SongInformationCard audioFileName={audioFileName} coverImageUrl={coverImageUrl} descriptionLength={formData.description.length} formData={formData} onAudioFileChange={handleMedia} onAudioFileClear={() => { setSelectedMediaFile(null); setAudioFileName(''); setAudioPreviewUrl(song?.audioUrl || '') }} onCoverImageChange={handleCover} onFieldChange={(field, value) => setFormData((current) => ({ ...current, [field]: value }))} onLanguageToggle={(language) => setSelectedLanguages((current) => current.includes(language) ? current.filter((item) => item !== language) : [...current, language])} onMoodToggle={(mood) => setSelectedMoods((current) => current.includes(mood) ? current.filter((item) => item !== mood) : [...current, mood].slice(0, 5))} onOtherLanguageChange={(value) => { setFormData((current) => ({ ...current, otherLanguage: value })); if (value.trim()) setSelectedLanguages((current) => current.includes('Others') ? current : [...current, 'Others']) }} onYouTubeLinkChange={(value) => setFormData((current) => ({ ...current, youtubeLink: value }))} selectedLanguages={selectedLanguages} selectedMoods={selectedMoods} />
+        : <LyricsCard canExtractLyrics={Boolean(selectedMediaFile || formData.youtubeLink.trim())} extractionError={extractionError} extractionStatus={extractionStatus} lyrics={lyrics} onExtractLyrics={extractLyrics} onLyricsChange={setLyrics} transcriptionStatus={transcriptionStatus} youtubeLink={formData.youtubeLink} />}
+    </div><LivePreviewCard artist={formData.artist} audioSrc={song?.audioUrl || audioPreviewUrl} description={formData.description} duration={audioDuration} languages={previewLanguages} mediaType={mediaType} moods={selectedMoods} theme={formData.theme} title={formData.title} youtubeLink={formData.youtubeLink} /></section>}
+    <StudioFooter activeStep={studioStep} disabled={isBusy || (studioStep === 3 && !readiness.ready)} lastSavedLabel={lastSavedLabel} onNext={() => setStudioStep((step) => Math.min(step + 1, 3))} onPublish={handlePublishSong} />
+  </div>
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader2, Play, Pause, Square, SkipBack, SkipForward, Maximize, Minimize, RefreshCw } from 'lucide-react'
+import { Loader2, Play, Pause, Square, SkipBack, SkipForward, Maximize, Minimize, RefreshCw, Subtitles } from 'lucide-react'
 import WaveSurfer from 'wavesurfer.js'
 import CreatorPageShell from '../components/CreatorPageShell'
 
@@ -235,6 +235,7 @@ export default function VideoEditor() {
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [showRegenerateInput, setShowRegenerateInput] = useState(false)
   const [userFeedback, setUserFeedback] = useState('')
+  const [showCaptions, setShowCaptions] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
 
   // Fullscreen UI State
@@ -424,7 +425,11 @@ export default function VideoEditor() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const res = await fetch(`/api/generation/${id}/export`, { method: 'POST' });
+      const res = await fetch(`/api/generation/${id}/export`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ burnCaptions: showCaptions })
+      });
       const result = await res.json();
       if (result.success && result.videoUrl) {
         // Trigger download directly in the browser
@@ -610,6 +615,13 @@ export default function VideoEditor() {
                 <button onClick={handleSkipForward} style={styles.controlBtn} title="Next Frame">
                   <SkipForward size={20} />
                 </button>
+                <button 
+                  onClick={() => setShowCaptions(!showCaptions)} 
+                  style={{...styles.controlBtn, color: showCaptions ? '#e2e8f0' : '#64748b'}} 
+                  title={showCaptions ? 'Hide Captions' : 'Show Captions'}
+                >
+                  <Subtitles size={20} />
+                </button>
                 <span style={{ ...styles.timeDisplay, color: '#fff' }}>
                   {formatTime(currentTime)} / {formatTime(duration)}
                 </span>
@@ -621,7 +633,7 @@ export default function VideoEditor() {
           </div>
 
           {/* Lyrics overlay */}
-          {frames[currentFrameIndex]?.lyrics && (
+          {showCaptions && frames[currentFrameIndex]?.lyrics && (
             <div style={{ 
               ...styles.lyricsOverlay, 
               bottom: (isFullscreen && showControls) ? '70px' : '0px',
@@ -648,6 +660,13 @@ export default function VideoEditor() {
             </button>
             <button onClick={handleSkipForward} style={styles.controlBtn} title="Next Frame">
               <SkipForward size={16} />
+            </button>
+            <button 
+              onClick={() => setShowCaptions(!showCaptions)} 
+              style={{...styles.controlBtn, color: showCaptions ? '#e2e8f0' : '#64748b'}} 
+              title={showCaptions ? 'Hide Captions' : 'Show Captions'}
+            >
+              <Subtitles size={16} />
             </button>
             <span style={styles.timeDisplay}>
               {formatTime(currentTime)} / {formatTime(duration)}

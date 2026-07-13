@@ -7,6 +7,8 @@ const { assembleVideo } = require('../services/videoAssembler')
 const { OpenAI } = require('openai')
 const cloudinary = require('../config/cloudinary')
 const aiStorageService = require('../services/aiStorageService')
+const { extractAudioFromYouTube, downloadMediaFromUrl } = require('../services/audioExtractionService')
+const { transcribeMediaBuffer } = require('../services/transcriptionService')
 
 // ==========================================
 // Phase 5: The Cleanup Utility
@@ -152,6 +154,40 @@ const runGenerationPipeline = async (jobId) => {
     const job = await GenerationJob.findByPk(jobId)
     if (!job) throw new Error(`Job ${jobId} not found in database.`)
 
+    const song = await Song.findByPk(job.songId)
+    if (!song) throw new Error(`Song ${job.songId} not found.`)
+
+    console.log(`[Phase 1] Audio Extraction & Whisper Transcription...`)
+    if (!song.transcriptionSegments || song.transcriptionSegments.length === 0) {
+      const targetUrl = song.videoUrl || song.audioUrl || 'https://youtu.be/hYIOC3y0tmg'
+      
+      let extractedInfo;
+      if (/(youtube\.com|youtu\.be)/i.test(targetUrl)) {
+        console.log(`[Phase 1] Extracting YouTube audio from ${targetUrl}...`)
+        extractedInfo = await extractAudioFromYouTube(targetUrl)
+      } else {
+        console.log(`[Phase 1] Downloading direct media from ${targetUrl}...`)
+        extractedInfo = await downloadMediaFromUrl(targetUrl, jobId)
+      }
+      
+      try {
+        const mediaBuffer = await fs.readFile(extractedInfo.filePath)
+        console.log(`[Phase 1] Transcribing audio via Whisper API...`)
+        const transcription = await transcribeMediaBuffer({
+          fileName: extractedInfo.fileName,
+          mediaBuffer,
+          mimeType: extractedInfo.mimeType
+        })
+        
+        await song.update({ transcriptionSegments: transcription.segments })
+        console.log(`[Phase 1] Saved ${transcription.segments.length} segments to database.`)
+      } finally {
+        await extractedInfo.cleanup()
+      }
+    } else {
+      console.log(`[Phase 1] Skipped. transcriptionSegments already exist.`)
+    }
+
     console.log(`[Phase 2] Generating Scene Plan...`)
     await generateScenePlan(jobId, job.songId)
 
@@ -194,6 +230,7 @@ const runGenerationPipeline = async (jobId) => {
 const exportVideo = async (req, res, next) => {
   try {
     const { jobId } = req.params;
+    const { burnCaptions = true } = req.body || {};
     const job = await GenerationJob.findByPk(jobId);
     if (!job) {
       return res.status(404).json({ success: false, message: 'Job not found' });
@@ -203,7 +240,7 @@ const exportVideo = async (req, res, next) => {
     await job.update({ status: 'IN_PROGRESS' });
 
     // Wait for the video compilation to finish
-    const assembleResult = await assembleVideo(jobId, job.songId);
+    const assembleResult = await assembleVideo(jobId, job.songId, burnCaptions);
     await job.reload();
 
     return res.status(200).json({ 

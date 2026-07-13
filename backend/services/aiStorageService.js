@@ -80,15 +80,17 @@ const uploadImageFromUrl = async (imageSource) => {
 /**
  * (PHASE 4) Uploads a compiled MP4 video to Cloudinary from the local disk.
  * @param {string} localFilePath - The local path to the generated .mp4 file.
+ * @param {number|string} jobId - The job ID to use in the file name.
  * @returns {Promise<string>} The permanent Cloudinary secure_url
  */
-const uploadCompiledVideo = (localFilePath) => {
+const uploadCompiledVideo = (localFilePath, jobId) => {
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload(
       localFilePath,
       {
         resource_type: 'video',
         folder: 'shades-of-sg/compiled-videos',
+        public_id: `export_job_${jobId}_${Date.now()}`
       },
       (error, result) => {
         if (error) {

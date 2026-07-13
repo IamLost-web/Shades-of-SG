@@ -76,6 +76,36 @@ describe('RhythmGame controls and lifecycle', () => {
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
   })
 
+  it('switches between the song video and persistent purple gameplay backgrounds', async () => {
+    mocks.fetchSongDetails.mockResolvedValueOnce({ ...song, videoUrl: '/generated-song.mp4' })
+    renderGame()
+
+    const videoBackground = await screen.findByRole('button', { name: 'Music video' })
+    const purpleBackground = screen.getByRole('button', { name: 'Purple' })
+    expect(videoBackground).toHaveAttribute('aria-pressed', 'true')
+    expect(document.querySelector('video')).toHaveAttribute('src', '/generated-song.mp4')
+
+    fireEvent.click(purpleBackground)
+    expect(purpleBackground).toHaveAttribute('aria-pressed', 'true')
+    expect(document.querySelector('video')).not.toBeInTheDocument()
+    expect(document.querySelector('main.rhythm-page')).toHaveClass('video-fallback')
+    expect(localStorage.getItem('rhythmBackgroundMode')).toBe('purple')
+
+    fireEvent.click(videoBackground)
+    expect(videoBackground).toHaveAttribute('aria-pressed', 'true')
+    expect(document.querySelector('video')).toHaveAttribute('src', '/generated-song.mp4')
+    expect(localStorage.getItem('rhythmBackgroundMode')).toBe('video')
+  })
+
+  it('uses purple and disables the video option when a song has no video', async () => {
+    renderGame()
+
+    expect(await screen.findByRole('button', { name: 'Purple' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Music video' })).toBeDisabled()
+    expect(screen.getByText('Music video unavailable for this song.')).toBeInTheDocument()
+    expect(document.querySelector('video')).not.toBeInTheDocument()
+  })
+
   it('coordinates the countdown and automatically pauses on window blur', async () => {
     renderGame()
     const start = await screen.findByRole('button', { name: 'Start' })

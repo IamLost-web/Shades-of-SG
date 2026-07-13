@@ -238,28 +238,68 @@ describe('App', () => {
     expect(screen.getByText('Rhythm game unavailable')).toHaveAttribute('title', 'This rhythm game is not available yet.')
   })
 
-  it('lists every published difficulty as its own playable Rhythm Hub track', async () => {
+  it('groups published Rhythm Hub difficulties into one playable song row', async () => {
     window.history.pushState({}, '', '/rhythm-game')
     vi.stubGlobal('fetch', vi.fn(async (url) => ({
-      json: async () => String(url).includes('/beatmaps') ? { beatmaps: [
-        { difficulty: 'EASY', published: { noteCount: 40 }, status: 'PUBLISHED' },
-        { difficulty: 'MEDIUM', published: { noteCount: 70 }, status: 'PUBLISHED' },
-        { difficulty: 'HARD', published: { noteCount: 100 }, status: 'PUBLISHED' },
-      ] } : ({ songs: [
-        { artist: 'Playable Artist', audioUrl: 'https://media.example/song.mp3', coverImageUrl: 'https://media.example/rhythm.jpg', durationSecs: 60, id: 'playable-1', languages: ['English'], status: 'PUBLISHED', theme: 'Community', title: 'Playable Published Song' },
-        { artist: 'No Audio', audioUrl: '', coverImageUrl: '', durationSecs: 0, id: 'unplayable-1', languages: [], status: 'PUBLISHED', title: 'Unplayable Song' },
-      ] }),
+      json: async () => {
+        if (String(url).includes('/songs/playable-1/beatmaps')) return { beatmaps: [
+          { difficulty: 'HARD', published: { noteCount: 100 }, status: 'PUBLISHED' },
+          { difficulty: 'EASY', published: { noteCount: 40 }, status: 'PUBLISHED' },
+          { difficulty: 'MEDIUM', published: { noteCount: 70 }, status: 'PUBLISHED' },
+          { difficulty: 'MEDIUM', noteCount: 72, status: 'DRAFT' },
+        ] }
+        if (String(url).includes('/songs/no-published-rhythm/beatmaps')) return { beatmaps: [
+          { difficulty: 'EASY', status: 'NOT_CREATED' },
+          { difficulty: 'MEDIUM', noteCount: 70, status: 'DRAFT' },
+        ] }
+        return { songs: [
+          { artist: 'Playable Artist', audioUrl: 'https://media.example/song.mp3', coverImageUrl: 'https://media.example/rhythm.jpg', durationSecs: 60, id: 'playable-1', languages: ['English'], status: 'PUBLISHED', theme: 'Community', title: 'Playable Published Song' },
+          { artist: 'Draft Mapper', audioUrl: 'https://media.example/draft.mp3', coverImageUrl: '', durationSecs: 60, id: 'no-published-rhythm', languages: ['Malay'], status: 'PUBLISHED', theme: 'Heritage', title: 'No Published Rhythm Song' },
+          { artist: 'No Audio', audioUrl: '', coverImageUrl: '', durationSecs: 0, id: 'unplayable-1', languages: [], status: 'PUBLISHED', title: 'Unplayable Song' },
+        ] }
+      },
       ok: true, status: 200,
     })))
     render(<AuthProvider><App /></AuthProvider>)
-    expect(await screen.findByRole('heading', { name: /Playable Published Song.*Easy/ })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /Playable Published Song.*Medium/ })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /Playable Published Song.*Hard/ })).toBeInTheDocument()
-    expect(screen.getAllByAltText('Playable Published Song cover')).toHaveLength(3)
-    expect(screen.getByRole('link', { name: 'Play Easy Track' })).toHaveAttribute('href', '/game/playable-1?difficulty=EASY')
-    expect(screen.getByRole('link', { name: 'Play Medium Track' })).toHaveAttribute('href', '/game/playable-1?difficulty=MEDIUM')
-    expect(screen.getByRole('link', { name: 'Play Hard Track' })).toHaveAttribute('href', '/game/playable-1?difficulty=HARD')
+    expect(await screen.findByRole('article', { name: 'Playable Published Song' })).toBeInTheDocument()
+    expect(screen.getAllByRole('article')).toHaveLength(1)
+    expect(screen.getAllByRole('heading', { name: 'Playable Published Song' })).toHaveLength(1)
+    expect(screen.getAllByAltText('Playable Published Song cover artwork')).toHaveLength(1)
+    expect(screen.getByText('3 difficulties available')).toBeInTheDocument()
+    expect(screen.getByText('1:00')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Play Playable Published Song on Easy difficulty' })).toHaveAttribute('href', '/game/playable-1?difficulty=EASY')
+    expect(screen.getByRole('link', { name: 'Play Playable Published Song on Medium difficulty' })).toHaveAttribute('href', '/game/playable-1?difficulty=MEDIUM')
+    expect(screen.getByRole('link', { name: 'Play Playable Published Song on Hard difficulty' })).toHaveAttribute('href', '/game/playable-1?difficulty=HARD')
+    expect(screen.queryByText('No Published Rhythm Song')).not.toBeInTheDocument()
     expect(screen.queryByText('Unplayable Song')).not.toBeInTheDocument()
+  })
+
+  it('formats Rhythm Hub duration and sorts loaded songs by newest, title, or artist', async () => {
+    window.history.pushState({}, '', '/rhythm-game')
+    vi.stubGlobal('fetch', vi.fn(async (url) => ({
+      json: async () => String(url).includes('/beatmaps')
+        ? { beatmaps: [{ difficulty: 'EASY', published: { id: 'easy-map', noteCount: 32 }, status: 'PUBLISHED' }] }
+        : { songs: [
+          { artist: 'Zulu Artist', audioUrl: 'https://media.example/older.mp3', coverImageUrl: '', durationSecs: 65, id: 'older-song', languages: ['English'], publishedDate: '2026-01-05T00:00:00.000Z', theme: 'Community', title: 'Alpha Echo' },
+          { artist: 'Alpha Artist', audioUrl: 'https://media.example/newer.mp3', coverImageUrl: '', durationSecs: 125, id: 'newer-song', languages: ['Malay'], publishedDate: '2026-06-10T00:00:00.000Z', theme: 'Heritage', title: 'Zulu Beat' },
+        ] },
+      ok: true,
+      status: 200,
+    })))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findAllByRole('article')).toHaveLength(2)
+    expect(screen.getAllByRole('article')[0]).toHaveTextContent('Zulu Beat')
+    expect(screen.getAllByText('1 difficulty available')).toHaveLength(2)
+    expect(screen.getByText('1:05')).toBeInTheDocument()
+    expect(screen.getByText('2:05')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Sort by'), { target: { value: 'title' } })
+    expect(screen.getAllByRole('article')[0]).toHaveTextContent('Alpha Echo')
+
+    fireEvent.change(screen.getByLabelText('Sort by'), { target: { value: 'artist' } })
+    expect(screen.getAllByRole('article')[0]).toHaveTextContent('Zulu Beat')
   })
 
   it('preselects a published Song from the Reflection Wall deep link', async () => {

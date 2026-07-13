@@ -16,6 +16,7 @@ const LANES = [
   { key: 'k', label: 'K', color: '#38bdf8' },
 ]
 const HIT_LINE_RATIO = 0.84
+const BACKGROUND_MODE_KEY = 'rhythmBackgroundMode'
 
 function resizeCanvas(canvas) {
   const parent = canvas.parentElement
@@ -123,6 +124,7 @@ export default function RhythmGame() {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [noteSpeed, setNoteSpeed] = useState(() => Number(localStorage.getItem('rhythmNoteSpeed') || 1))
   const [volume, setVolume] = useState(() => Number(localStorage.getItem('rhythmVolume') || 0.8))
+  const [backgroundMode, setBackgroundMode] = useState(() => localStorage.getItem(BACKGROUND_MODE_KEY) === 'purple' ? 'purple' : 'video')
   const [previewOffsetMs, setPreviewOffsetMs] = useState(0)
   const [savedPreviewOffsetMs, setSavedPreviewOffsetMs] = useState(0)
   const [previewMessage, setPreviewMessage] = useState('')
@@ -154,6 +156,7 @@ export default function RhythmGame() {
   const totalNotes = beatmap?.notes.length || 0
   const accuracy = calculateWeightedAccuracy(stats.earnedAccuracyPoints, stats.maximumAccuracyPoints)
   const progress = Math.min(100, (songTimeMs / Math.max(beatmap?.durationMs || 1, 1)) * 100)
+  const showVideoBackground = backgroundMode === 'video' && Boolean(song?.videoUrl)
 
   const syncStats = useCallback((next) => { statsRef.current = next; setStats(next) }, [])
   const showJudgement = useCallback((label) => {
@@ -408,6 +411,19 @@ export default function RhythmGame() {
     if (audioRef.current) audioRef.current.volume = Math.max(0, Math.min(1, volume))
   }, [song, volume])
 
+  useEffect(() => {
+    const video = videoRef.current
+    const audio = audioRef.current
+    if (!showVideoBackground || !video || !audio) return
+    video.currentTime = audio.currentTime
+    if (phase === 'playing') video.play().catch(() => {})
+  }, [phase, showVideoBackground])
+
+  const selectBackground = useCallback((mode) => {
+    setBackgroundMode(mode)
+    localStorage.setItem(BACKGROUND_MODE_KEY, mode)
+  }, [])
+
   const protectPlaybackPosition = useCallback(() => {
     const audio = audioRef.current
     if (!audio || phase !== 'playing' || seekingRef.current) return
@@ -436,8 +452,8 @@ export default function RhythmGame() {
   }, [beatmap?.status, difficulty, preview, previewOffsetMs, savedPreviewOffsetMs, songId, token])
 
   return (
-    <main className="rhythm-page">
-      {song?.videoUrl && <video aria-hidden="true" className="rhythm-background-video" loop muted playsInline ref={videoRef} src={song.videoUrl} />}
+    <main className={`rhythm-page ${showVideoBackground ? 'has-video-background' : 'video-fallback'}`}>
+      {showVideoBackground && <video aria-hidden="true" className="rhythm-background-video" loop muted playsInline ref={videoRef} src={song.videoUrl} />}
       {song?.audioUrl && <audio onEnded={finishAtAudioEnd} onSeeking={protectPlaybackPosition} preload="auto" ref={audioRef} src={song.audioUrl} />}
       <div className="rhythm-video-overlay" />
       <section className="rhythm-shell">
@@ -470,6 +486,14 @@ export default function RhythmGame() {
             </div>
             <p>Difficulty</p>
             <div className="difficulty-control">{DIFFICULTIES.map((level) => <button className={difficulty === level ? 'active' : ''} disabled={!['ready'].includes(phase) || loadingState === 'loading'} key={level} onClick={() => { setLoadingState('loading'); setError(''); setDifficulty(level) }} type="button">{level}</button>)}</div>
+            <fieldset className="background-control">
+              <legend>Background</legend>
+              <div className="background-options">
+                <button aria-pressed={!showVideoBackground} className={!showVideoBackground ? 'is-active' : ''} onClick={() => selectBackground('purple')} type="button">Purple</button>
+                <button aria-pressed={showVideoBackground} className={showVideoBackground ? 'is-active' : ''} disabled={!song?.videoUrl} onClick={() => selectBackground('video')} title={song?.videoUrl ? 'Use the song music video as the background' : 'No music video is available for this song'} type="button">Music video</button>
+              </div>
+              {!song?.videoUrl && loadingState !== 'loading' ? <small>Music video unavailable for this song.</small> : null}
+            </fieldset>
             <button className="settings-toggle" onClick={() => setDetailsOpen((open) => !open)} type="button"><SlidersHorizontal aria-hidden="true" /> {detailsOpen ? 'Hide details' : 'Show details'}</button>
             {detailsOpen && <div className="settings-details"><span>{details}</span><label>Note speed <output>{noteSpeed.toFixed(2)}x</output><input aria-label="Visual note speed" max="1.5" min="0.75" onChange={(event) => { const value = Number(event.target.value); setNoteSpeed(value); localStorage.setItem('rhythmNoteSpeed', value) }} step="0.05" type="range" value={noteSpeed} /></label><label>Volume <output>{Math.round(volume * 100)}%</output><input aria-label="Game volume" max="1" min="0" onChange={(event) => { const value = Number(event.target.value); setVolume(value); localStorage.setItem('rhythmVolume', value) }} step="0.05" type="range" value={volume} /></label><span>Space / Esc pauses · R restarts</span></div>}
             {preview && <div className="preview-calibration" aria-label="Draft beatmap controls"><strong>Draft Preview</strong><p>Adjust timing if notes appear slightly early or late during preview.</p><label>Timing offset <output>{previewOffsetMs}ms</output><input aria-label="Draft preview timing offset" disabled={beatmap?.status !== 'DRAFT' || previewBusy} max="500" min="-500" onChange={(event) => setPreviewOffsetMs(Number(event.target.value))} step="5" type="range" value={previewOffsetMs} /></label><div><button disabled={beatmap?.status !== 'DRAFT' || previewBusy || previewOffsetMs === savedPreviewOffsetMs} onClick={savePreviewOffset} type="button">Save Offset</button><button disabled={beatmap?.status !== 'DRAFT' || previewBusy} onClick={publishPreview} type="button">Publish</button></div>{previewMessage && <span role="status">{previewMessage}</span>}</div>}

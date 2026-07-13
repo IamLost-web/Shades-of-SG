@@ -3724,3 +3724,173 @@ The branch now contains a more polished Violet creator profile, stronger rhythm 
 ### Lesson
 
 Audio upload, final-video upload, AI generation, and public publication are separate lifecycle states even when they use the same MP4 file type. The UI must identify which state a file updates and must always preview the newest intended media source; otherwise a successful upload can appear to have failed because an older URL still has precedence.
+
+---
+
+## 2026-07-14 — Public Rhythm Hub Song Rows, Selection Polish, and Gameplay Background Choice
+
+### AI Tool Used
+
+OpenAI Codex was used to inspect the public Rhythm Game hub, trace public beatmap and media data, implement the requested interface changes, update regression coverage, diagnose the live Sailor Song video source, and run frontend verification. Ferlyn supplied the desired row layout, the iterative design feedback, and the gameplay screenshot used for the media-background investigation.
+
+### Objective
+
+Replace the public Rhythm Game hub's repeated one-card-per-difficulty presentation with a compact one-row-per-song selection screen, then polish the layout and interactions without copying Rhythm Plus branding or changing Shades of SG's backend behavior. The follow-up objective was to confirm which media source public rhythm gameplay uses and let players choose between the normal purple gameplay background and the Song's MP4 background.
+
+### Rhythm Hub Audit and Data Flow
+
+The original hub loaded published Songs and requested a beatmap summary for each playable Song. It then flattened every published difficulty into a separate card, which repeated the same cover, title, artist, community, and language information up to three times.
+
+The existing public gameplay route was already correct:
+
+- the hub navigates to `/game/:songId?difficulty=EASY|MEDIUM|HARD`;
+- `RhythmGame` reads the difficulty query parameter and normalizes it;
+- the public beatmap service requests only the selected stored PUBLISHED chart;
+- draft preview remains creator-authenticated and separate from public play;
+- guest and registered-player score behavior is handled after gameplay and did not need to change.
+
+The public beatmap summary provides one row for Easy, Medium, and Hard. A published summary contains the public beatmap metadata, including its note count. This allowed the frontend to group safely without introducing a new backend route.
+
+### One-Row-Per-Song Refactor
+
+The hub now groups loaded beatmap summaries with a `Map` keyed by `song.id`. Only rows whose status is `PUBLISHED` are added to a Song's `difficulties` array. Duplicate difficulty entries are ignored, and the final controls are ordered Easy, Medium, then Hard.
+
+This grouping produces the following public rules:
+
+- every Song appears at most once;
+- a Song with no PUBLISHED beatmap is omitted;
+- DRAFT, FAILED, and NOT_CREATED difficulties produce no public action;
+- each available difficulty is an explicit semantic link;
+- every link retains the correct Song ID and difficulty query parameter;
+- note counts come from the published beatmap summary rather than hardcoded data.
+
+Each row contains one meaningful cover image, a semantic Song heading, artist, community/theme, languages, formatted duration, an available-difficulty summary, and compact Easy, Medium, and Hard play actions. Easy retains a green treatment, Medium uses purple, and Hard uses pink/red. The play action includes the difficulty name, note count, and a play icon, with an accessible label such as `Play Sailor Song on Easy difficulty`.
+
+### Visual and Interaction Refinement
+
+The initial row conversion was followed by a dedicated polish pass. The final hub includes:
+
+- a centred content area aligned with the existing site maximum width;
+- dark navy and purple surfaces using the existing design tokens;
+- square cover artwork with `object-fit: cover`, clipped rounded corners, and a subtle scale effect;
+- a deliberate desktop grid for artwork, Song information, and grouped difficulty controls;
+- a smaller supporting `DIFFICULTIES AVAILABLE` label with correct singular and plural grammar;
+- real Song duration formatted as `m:ss`, omitted cleanly when unavailable;
+- metadata ordered as community/theme, language, and duration;
+- a two-pixel row lift, brighter surface, purple border glow, and subtle shadow on hover;
+- the same clear row treatment through `:focus-within` for keyboard users;
+- difficulty-button hover, pressed, and visible focus states;
+- default row cursors so the row itself does not imply an action;
+- reduced-motion handling that removes lift and image-scale motion;
+- tablet wrapping that moves difficulty actions beneath the metadata;
+- a single-column mobile layout with full-width difficulty actions and touch targets above forty-four pixels.
+
+No advertisement, favorite control, mapper metadata, fake difficulty rating, placeholder Song, or Rhythm Plus branding was added.
+
+### Client-Side Sorting
+
+Sorting was implemented because the existing public Song payload already contains `publishedDate`, title, and artist. The hub provides Newest, Title, and Artist choices and sorts only the already loaded, grouped Songs. Newest remains the default and uses `publishedDate`; Title and Artist use locale-aware comparisons, with title used as the artist-sort tiebreaker.
+
+The first sort control inherited the project's global `select { width: 100% }` rule and appeared much wider than intended. A follow-up CSS correction made it a compact, left-aligned `Sort by [Newest]` control with a two-hundred-pixel select and a responsive maximum width. No search field, filter system, backend sorting parameter, or difficulty sorting was introduced.
+
+### Rhythm Gameplay Video Investigation
+
+The gameplay media audit confirmed that a beatmap does not own or embed a video. Public gameplay loads two separate resources:
+
+1. the selected PUBLISHED beatmap supplies note timing and chart metadata;
+2. the public Song supplies `audioUrl` and the optional `videoUrl`.
+
+`RhythmGame` uses the audio element as the authoritative clock. When a Song has `videoUrl`, a muted, looping video element is rendered behind the gameplay and kept synchronized with the audio position.
+
+The same Song `videoUrl` field can represent either supported final-video workflow:
+
+- creator uploads are stored by `uploadVideoStream` under the Cloudinary `shades-of-sg/uploaded-videos` folder;
+- AI-assembled videos are uploaded by `uploadCompiledVideo` under `shades-of-sg/compiled-videos` and persisted by the video assembler.
+
+Gameplay intentionally does not branch on provenance. It consumes the Song's selected final `videoUrl` in the same safe way for either source.
+
+A read-only lookup against the local SQLite state could not classify the screenshot Song because that local schema did not contain `video_public_id`, and the screenshot's Song ID was not present in that local database. The active local API at port 5000 was therefore checked directly. For Sailor Song `ab589907-3903-43e9-83d4-cf3b461a9059`, it returned:
+
+- status `PUBLISHED`;
+- `videoUrl` set to `https://shades-of-sg.vercel.app//videos/placeholder-generation.mp4`;
+- `videoPublicId` set to `null`.
+
+That specific gameplay background is therefore the configured temporary generation placeholder, not a creator-uploaded final video and not a completed AI-compiled video. It remains usable through the same `videoUrl` contract but should eventually be replaced with final media.
+
+### Purple and Music-Video Background Toggle
+
+Public gameplay now displays a compact Background control in the Run Controls panel with two explicit choices:
+
+- `Purple` uses the normal dark-purple Shades of SG gameplay surface;
+- `Music video` uses the Song's `videoUrl` as a muted background.
+
+The implementation preserves the previous video-first behavior for Songs that have a video and no saved player preference. The selected choice is stored locally under `rhythmBackgroundMode`, so it persists for later sessions on the same browser.
+
+When the player enables the video during a run, the video is mounted, moved to the audio element's current time, and resumed only when gameplay is playing. The audio remains the authoritative timing and sound source. Turning the video off unmounts it and reveals the purple surface without changing note timing, phase, score, accuracy, beatmap state, or audio playback.
+
+If a Song has no `videoUrl`, gameplay automatically uses purple, disables the Music video choice, and presents a short availability explanation. The controls use semantic buttons, `aria-pressed`, visible focus rings, distinct text labels, and more than color alone to communicate the current selection.
+
+### Files Modified
+
+- `frontend/src/pages/RhythmHub.jsx`
+- `frontend/src/components/RhythmGame.jsx`
+- `frontend/src/App.css`
+- `frontend/src/App.test.jsx`
+- `frontend/src/components/RhythmGame.test.jsx`
+- `ferlyn_journal.md`
+
+No backend implementation file, API route, model, migration, authentication rule, beatmap lifecycle, or score-persistence behavior was changed for this work.
+
+### Test Coverage Added or Updated
+
+The public hub regression coverage now verifies:
+
+- one rendered row per Song;
+- one cover and heading rather than repeated difficulty cards;
+- PUBLISHED-only difficulty actions;
+- Songs without published beatmaps remain hidden;
+- unplayable Songs remain hidden;
+- correct Song and difficulty route parameters;
+- published note counts;
+- singular and plural availability labels;
+- `m:ss` duration formatting;
+- Newest, Title, and Artist sorting.
+
+The gameplay regression coverage now verifies:
+
+- the music-video background is rendered from `song.videoUrl`;
+- switching to Purple removes the video and applies the fallback surface;
+- switching back restores the video;
+- the background choice is persisted;
+- Purple is selected automatically when no video exists;
+- the Music video choice is disabled and explained when unavailable.
+
+### Verification Performed
+
+The final verified frontend state after the background-toggle work was:
+
+- focused Rhythm Hub application tests: one file passed, sixteen tests passed;
+- focused RhythmGame tests: one file passed, nine tests passed;
+- complete frontend Vitest suite: sixteen files passed, eighty-eight tests passed;
+- frontend ESLint: passed;
+- Vite production build: passed with 1,906 modules transformed;
+- `git diff --check`: passed.
+
+The production build retained the existing advisory that the primary JavaScript chunk is larger than five hundred kilobytes after minification. The warning did not fail the build and was not introduced as a separate optimization task.
+
+### Final Outcome
+
+The public Rhythm Game hub now reads as a real Song-selection interface rather than a repeated card gallery. It scales cleanly from desktop to mobile, keeps every difficulty action explicit, exposes only published rhythm content, and provides compact client-side sorting without expanding the API surface.
+
+Gameplay now makes its background source an explicit player choice. Users can retain the readable purple surface or view the Song's stored MP4 without affecting the audio clock, chart, scoring, guest behavior, registered score submission, creator preview restrictions, loading state, error state, or result flow.
+
+### Remaining Work
+
+- Replace Sailor Song's temporary `placeholder-generation.mp4` URL with the intended creator-uploaded or completed AI-generated final video.
+- Reconcile the older local SQLite schema with the active application schema before using it for future provenance diagnostics; do not apply destructive synchronization to a deployed database.
+- Perform real-browser and real-device playtesting of the background toggle during countdown, active play, pause, restart, fullscreen, and reduced-motion configurations.
+- Consider JavaScript chunk splitting as a separate performance task if the production bundle advisory becomes a deployment concern.
+
+### Lesson
+
+Beatmap content and visual media are related at the Song experience level but are separate data contracts. Keeping audio as the authoritative clock and treating video as an optional presentation layer makes the background safely user-selectable without compromising chart timing or score integrity. A stored URL also does not prove that media is final: provenance fields and the actual URL path must be checked before describing a video as uploaded or AI-generated.

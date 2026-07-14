@@ -154,6 +154,44 @@ describe('App', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('starts video generation and opens the created job progress page', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    window.history.pushState({}, '', '/creator/studio/song-generate')
+    const savedSong = {
+      artist: 'Studio Artist', audioUrl: 'https://media.example/song.mp3', description: 'Saved description',
+      durationSecs: 210, id: 'song-generate', languages: ['English'], moodTags: [], otherLanguages: [],
+      rawLyrics: 'Saved lyrics', status: 'DRAFT', theme: 'Community', title: 'Generation Song',
+      transcriptionSegments: [{ end: 4, start: 0, text: 'Saved lyrics' }], updatedAt: new Date().toISOString(),
+    }
+    const fetchMock = vi.fn(async (url) => {
+      const path = String(url)
+      if (path.includes('/generation/job-123/status')) {
+        return { json: async () => ({ data: { id: 'job-123', song: savedSong, status: 'QUEUED' }, success: true }), ok: true, status: 200 }
+      }
+      if (path.endsWith('/generation/start')) {
+        return { json: async () => ({ data: { id: 'job-123', songId: savedSong.id, status: 'QUEUED' }, success: true }), ok: true, status: 202 }
+      }
+      if (path.includes('/beatmaps')) return { json: async () => ({ beatmaps: [] }), ok: true, status: 200 }
+      if (path.includes('/transcriptions/status')) return { json: async () => ({ configured: true }), ok: true, status: 200 }
+      if (path.includes('/readiness')) return { json: async () => ({ missing: ['videoUrl'], ready: false, songStatus: 'DRAFT' }), ok: true, status: 200 }
+      return { json: async () => ({ song: savedSong }), ok: true, status: 200 }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AuthProvider><App /></AuthProvider>)
+    expect(await screen.findByDisplayValue('Generation Song')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Video' }))
+
+    await waitFor(() => expect(window.location.pathname).toBe('/creator/generation/job-123'))
+    let statusRequest
+    await waitFor(() => {
+      statusRequest = fetchMock.mock.calls.find(([url]) => String(url).includes('/generation/job-123/status'))
+      expect(statusRequest).toBeTruthy()
+    })
+    expect(statusRequest[1].headers.Authorization).toBe('Bearer creator-token')
+  })
+
   it('renders creator-scoped My Songs data instead of mock songs', async () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
@@ -170,6 +208,8 @@ describe('App', () => {
     expect(await screen.findAllByText('Database Draft')).not.toHaveLength(0)
     expect(screen.queryByText('Song #1')).not.toBeInTheDocument()
     expect(screen.getAllByText('Database Artist')).not.toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(window.location.pathname).toBe('/creator/studio/real-song-1')
   })
 
   it('renders real dashboard summary counts without fake play totals', async () => {

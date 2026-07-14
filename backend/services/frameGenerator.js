@@ -23,8 +23,8 @@ async function generateFrames(jobId, songId) {
     if (!job) {
       throw new Error(`GenerationJob with ID ${jobId} not found.`)
     }
-    if (job.status !== 'IN_PROGRESS') {
-      throw new Error(`GenerationJob is not in IN_PROGRESS state. Current state: ${job.status}`)
+    if (job.status !== 'PROCESSING') {
+      throw new Error(`GenerationJob is not in PROCESSING state. Current state: ${job.status}`)
     }
 
     // Fetch scene segments ordered chronologically
@@ -72,10 +72,11 @@ async function generateFrames(jobId, songId) {
           openAiImageUrl = response.data[0].url
         } catch (openaiError) {
           // Fallback to DALL-E 2 if DALL-E 3 is unavailable (Tier 0) or hits a 400 error
+          let fallbackResponse
           try {
             if (openaiError.status === 400 || openaiError.status === 404 || openaiError.code === 'model_not_found') {
               console.warn(`[Fallback] DALL-E 3 failed (${openaiError.message}). Falling back to DALL-E 2 for segment ${segment.id}.`)
-              const fallbackResponse = await getOpenAIClient().images.generate({
+              fallbackResponse = await getOpenAIClient().images.generate({
                 model: 'dall-e-2',
                 prompt: segment.visualPrompt,
                 size: '512x512',

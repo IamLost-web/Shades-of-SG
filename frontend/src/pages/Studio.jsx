@@ -713,7 +713,7 @@ export default function Studio() {
         quiet: true,
       })
 
-      await startGeneration(savedSong.id, token)
+      const job = await startGeneration(savedSong.id, token)
 
       setMessage({
         type: 'success',
@@ -721,7 +721,7 @@ export default function Studio() {
           'Draft saved and video generation queued.',
       })
 
-      navigate('/creator/generation')
+      navigate(`/creator/generation/${job.id}`)
     } catch (error) {
       if (!error.userMessageShown) {
         setMessage({
@@ -1073,6 +1073,7 @@ export default function Studio() {
             )}
 
             <RhythmBeatmapPanel
+              onBeforeGenerate={() => saveDraft({ quiet: true })}
               songId={songId}
               songStatus={song?.status}
               token={token}

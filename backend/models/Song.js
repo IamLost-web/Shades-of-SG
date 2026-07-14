@@ -28,6 +28,17 @@ const Song = sequelize.define('Song', {
         type: DataTypes.STRING,
         allowNull: true,
     },
+    languages: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+    otherLanguages: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+        field: 'other_languages',
+    },
     moodTags: {
         type: DataTypes.JSON,
         allowNull: false,
@@ -53,13 +64,46 @@ const Song = sequelize.define('Song', {
         allowNull: true,
         field: 'audio_url',
     },
+    audioPublicId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: 'audio_public_id',
+    },
+    sourceYoutubeUrl: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'source_youtube_url',
+    },
+    coverImageUrl: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'cover_image_url',
+    },
+    coverImagePublicId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: 'cover_image_public_id',
+    },
     videoUrl: {
         type: DataTypes.TEXT,
         allowNull: true,
         field: 'video_url',
     },
+    videoPublicId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: 'video_public_id',
+    },
+    durationSecs: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: 'duration_secs',
+        validate: {
+            min: 0,
+        },
+    },
     status: {
-        type: DataTypes.ENUM('DRAFT', 'PUBLISHED'),
+        type: DataTypes.ENUM('DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED'),
         allowNull: false,
         defaultValue: 'DRAFT',
     },

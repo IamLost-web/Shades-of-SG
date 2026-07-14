@@ -20,6 +20,7 @@ const uploadAudioStream = (fileData) => {
           )
         }
         resolve({
+          audioPublicId: result.public_id,
           audioUrl: result.secure_url,
           duration: Math.round(result.duration || 0),
         })

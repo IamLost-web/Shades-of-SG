@@ -1,5 +1,6 @@
 const fs = require('fs').promises
 const path = require('path')
+const { Op } = require('sequelize')
 const { GenerationJob, Song, SceneSegment, GeneratedFrame } = require('../models')
 const { generateScenePlan } = require('../services/aiScenePlanner')
 const { generateFrames } = require('../services/frameGenerator')
@@ -88,17 +89,36 @@ const startGeneration = async (req, res, next) => {
       throw error
     }
 
-    const song = await Song.findByPk(songId)
+    const song = await Song.findOne({
+      where: {
+        creatorId: req.authUserRecord.id,
+        id: songId,
+      },
+    })
     if (!song) {
       const error = new Error('Song not found.')
       error.statusCode = 404
       throw error
     }
     
+    const activeJob = await GenerationJob.findOne({
+      where: {
+        songId,
+        status: { [Op.in]: ['QUEUED', 'PROCESSING'] },
+      },
+    })
+
+    if (activeJob) {
+      return res.status(409).json({
+        success: false,
+        message: 'Video generation is already active for this song.',
+      })
+    }
+
     // 1. Create the tracking ticket
     const job = await GenerationJob.create({
       songId,
-      status: 'IN_PROGRESS',
+      status: 'QUEUED',
     })
 
     await song.update({ status: 'GENERATING' })
@@ -112,7 +132,13 @@ const startGeneration = async (req, res, next) => {
       data: job,
     })
   } catch (error) {
-    next(error)
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({
+        success: false,
+        message: 'Video generation is already active for this song.',
+      })
+    }
+    return next(error)
   }
 }
 
@@ -149,6 +175,13 @@ const getGenerationStatus = async (req, res, next) => {
       throw error
     }
 
+    if (job.song?.creatorId !== req.authUserRecord.id) {
+      return res.status(404).json({
+        success: false,
+        message: 'Generation job not found.',
+      })
+    }
+
     return res.json({
       success: true,
       data: job,
@@ -161,7 +194,13 @@ const getGenerationStatus = async (req, res, next) => {
 const getAllJobs = async (req, res, next) => {
   try {
     const jobs = await GenerationJob.findAll({
-      include: [{ model: Song, as: 'song', attributes: ['title', 'artist'] }],
+      include: [{
+        model: Song,
+        as: 'song',
+        attributes: ['id', 'title', 'artist'],
+        required: true,
+        where: { creatorId: req.authUserRecord.id },
+      }],
       order: [['createdAt', 'DESC']],
     })
 
@@ -184,6 +223,12 @@ const runGenerationPipeline = async (jobId) => {
   try {
     const job = await GenerationJob.findByPk(jobId)
     if (!job) throw new Error(`Job ${jobId} not found in database.`)
+
+    await job.update({
+      errorMessage: null,
+      startedAt: job.startedAt || new Date(),
+      status: 'PROCESSING',
+    })
 
     const song = await Song.findByPk(job.songId)
     if (!song) throw new Error(`Song ${job.songId} not found.`)
@@ -270,7 +315,7 @@ const exportVideo = async (req, res, next) => {
     }
 
     // Set job back to in progress so the frontend sees it compiling
-    await job.update({ status: 'IN_PROGRESS' });
+    await job.update({ status: 'PROCESSING' });
 
     // Wait for the video compilation to finish
     const assembleResult = await assembleVideo(jobId, job.songId, burnCaptions);

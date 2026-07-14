@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Loader2, ChevronDown, ChevronRight, AlertCircle, CheckCircle } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import GenerationStatusBadge from '../components/GenerationStatusBadge'
+import { useAuth } from '../context/AuthContext'
 import { API_URL } from '../services/apiConfig'
 
 /*
@@ -15,6 +16,7 @@ Implement logs view.
 export default function GenerationProgress() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { token } = useAuth()
   
   const [jobData, setJobData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -28,7 +30,9 @@ export default function GenerationProgress() {
 
     const fetchStatus = async () => {
       try {
-        const response = await fetch(`${API_URL}/generation/${id}/status`)
+        const response = await fetch(`${API_URL}/generation/${id}/status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
         if (!response.ok) throw new Error(`Failed to fetch status: ${response.statusText}`)
 
         const json = await response.json()
@@ -58,7 +62,7 @@ export default function GenerationProgress() {
       isMounted = false
       clearInterval(intervalId)
     }
-  }, [id])
+  }, [id, token])
 
   if (loading) {
     return (
@@ -90,7 +94,7 @@ export default function GenerationProgress() {
     )
   }
 
-  const status = jobData?.status || 'NOT_STARTED'
+  const status = jobData?.status || 'QUEUED'
   const sceneSegments = jobData?.song?.sceneSegments || []
 
   return (

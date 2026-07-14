@@ -202,7 +202,8 @@ test('creator can upload an MP4 as song media', async () => {
 
     expect(response.status).toBe(200);
     expect(upload).toHaveBeenCalledWith(expect.any(Buffer));
-    expect(response.body.song).toMatchObject({
+    await song.reload();
+    expect(song.toJSON()).toMatchObject({
         audioPublicId: 'audio/source-video',
         audioUrl: 'https://media.example/source-video.mp4',
         durationSecs: 42,

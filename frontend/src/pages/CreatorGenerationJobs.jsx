@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
 import EmptyState from '../components/EmptyState'
+import GenerationStatusBadge from '../components/GenerationStatusBadge'
 import { API_URL } from '../services/apiConfig'
 
 const jobFilters = ['All', 'Processing', 'Completed', 'Failed']

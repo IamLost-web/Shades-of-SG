@@ -638,10 +638,7 @@ export default function CreatorSongs() {
                 )}
 
                 <button
-                  disabled={
-                    selected.status === 'GENERATING' ||
-                    busyId === selected.id
-                  }
+                  disabled={busyId === selected.id}
                   onClick={() =>
                     navigate(`/creator/studio/${selected.id}`)
                   }

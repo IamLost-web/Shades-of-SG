@@ -127,7 +127,7 @@ export default function Studio() {
 
     let isMounted = true
 
-    fetch(`${API_BASE_URL}/transcriptions/status`)
+    fetch(`${API_BASE_URL}/transcriptions/status`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
       .then((response) => response.json())
       .then((data) => {
         if (!isMounted) {
@@ -288,7 +288,7 @@ export default function Studio() {
 
         const response = await fetch(`${API_BASE_URL}/transcriptions/lyrics`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
           body: JSON.stringify({ youtubeUrl: formData.youtubeLink }),
         })
         const data = await response.json().catch(() => ({}))
@@ -310,7 +310,7 @@ export default function Studio() {
       const mediaBase64 = await readFileAsBase64(selectedMediaFile)
       const response = await fetch(`${API_BASE_URL}/transcriptions/lyrics`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: JSON.stringify({
           fileName: selectedMediaFile.name,
           mediaBase64,
@@ -362,6 +362,7 @@ export default function Studio() {
       const response = await fetch(`${API_BASE_URL}/songs/upload`, {
         method: 'POST',
         // Omit Content-Type so browser sets boundary for FormData
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: payload
       })
 

@@ -299,7 +299,7 @@ export default function VideoEditor() {
   }
 
   useEffect(() => {
-    fetch(`/api/generation/${id}/status`)
+    fetch(`/api/generation/${id}/status`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
       .then(res => res.json())
       .then(result => {
         if (result.success && result.data) {
@@ -402,7 +402,7 @@ export default function VideoEditor() {
     try {
       const res = await fetch(`/api/generation/frame/${currentFrame.id}/regenerate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: JSON.stringify({ userFeedback })
       });
       const result = await res.json();
@@ -428,7 +428,7 @@ export default function VideoEditor() {
     try {
       const res = await fetch(`/api/generation/${id}/export`, { 
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: JSON.stringify({ burnCaptions: false }) // Clean export for platform
       });
       const result = await res.json();
@@ -462,7 +462,7 @@ export default function VideoEditor() {
     try {
       const res = await fetch(`/api/generation/${id}/export`, { 
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: JSON.stringify({ burnCaptions: showCaptions })
       });
       const result = await res.json();

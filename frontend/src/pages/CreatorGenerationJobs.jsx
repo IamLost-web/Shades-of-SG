@@ -41,7 +41,7 @@ export default function CreatorGenerationJobs() {
     let isMounted = true
     const loadInitialJobs = async () => {
       try {
-        const response = await fetch(`${API_URL}/generation`)
+        const response = await fetch(`${API_URL}/generation`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
         const contentType = response.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
           throw new Error("Server returned an invalid response");
@@ -64,7 +64,7 @@ export default function CreatorGenerationJobs() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/generation`)
+      const response = await fetch(`${API_URL}/generation`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         throw new Error("Server returned an invalid response");
@@ -86,7 +86,7 @@ export default function CreatorGenerationJobs() {
     try {
       const response = await fetch(`${API_URL}/songs/extract-audio`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: JSON.stringify({ youtubeUrl: youtubeLink })
       })
       const contentType = response.headers.get("content-type");
@@ -118,7 +118,7 @@ export default function CreatorGenerationJobs() {
 
       const response = await fetch(`${API_URL}/transcriptions/lyrics`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: payload
       })
 
@@ -148,7 +148,7 @@ export default function CreatorGenerationJobs() {
     try {
       const songRes = await fetch(`${API_URL}/songs`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: JSON.stringify({
           title: formData.title,
           artist: formData.artist || 'Unknown Artist',
@@ -167,7 +167,7 @@ export default function CreatorGenerationJobs() {
 
       const genRes = await fetch(`${API_URL}/generation/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: JSON.stringify({ songId: songData.data.id })
       })
       const genContentType = genRes.headers.get("content-type");

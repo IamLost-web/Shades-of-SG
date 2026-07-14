@@ -69,4 +69,32 @@ async function ensureReflectionModerationSchema(sequelize) {
     }
 }
 
-module.exports = { ensureGuestReflectionSchema, ensureReflectionModerationSchema };
+async function ensureSongSchema(sequelize) {
+    const queryInterface = sequelize.getQueryInterface();
+    const columns = await queryInterface.describeTable('songs');
+
+    if (!columns.raw_lyrics) {
+        await queryInterface.addColumn('songs', 'raw_lyrics', {
+            allowNull: true,
+            type: DataTypes.TEXT,
+        });
+    }
+
+    if (!columns.transcription_segments) {
+        await queryInterface.addColumn('songs', 'transcription_segments', {
+            allowNull: true,
+            type: DataTypes.JSON,
+        });
+    }
+}
+
+async function ensureGenerationJobSchema(sequelize) {
+    // Empty schema updater to satisfy server.js import requirements
+}
+
+module.exports = { 
+    ensureGuestReflectionSchema, 
+    ensureReflectionModerationSchema,
+    ensureSongSchema,
+    ensureGenerationJobSchema
+};

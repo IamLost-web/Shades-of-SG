@@ -3809,13 +3809,21 @@ The same Song `videoUrl` field can represent either supported final-video workfl
 
 Gameplay intentionally does not branch on provenance. It consumes the Song's selected final `videoUrl` in the same safe way for either source.
 
-A read-only lookup against the local SQLite state could not classify the screenshot Song because that local schema did not contain `video_public_id`, and the screenshot's Song ID was not present in that local database. The active local API at port 5000 was therefore checked directly. For Sailor Song `ab589907-3903-43e9-83d4-cf3b461a9059`, it returned:
+A read-only lookup against the local SQLite state could not classify the screenshot Song because that local schema did not contain `video_public_id`, and the screenshot's Song ID was not present in that local database. The active local API at port 5000 was therefore checked directly. During the first background audit, Sailor Song `ab589907-3903-43e9-83d4-cf3b461a9059` returned:
 
 - status `PUBLISHED`;
 - `videoUrl` set to `https://shades-of-sg.vercel.app//videos/placeholder-generation.mp4`;
 - `videoPublicId` set to `null`.
 
-That specific gameplay background is therefore the configured temporary generation placeholder, not a creator-uploaded final video and not a completed AI-compiled video. It remains usable through the same `videoUrl` contract but should eventually be replaced with final media.
+At that point, the gameplay background was the configured temporary generation placeholder rather than final media. After Ferlyn uploaded the completed MP4 through the final-video workflow, a second live API check confirmed that the record had changed to:
+
+- status `PUBLISHED`;
+- `audioUrl` set to a Cloudinary MP4 under `shades-of-sg/audio`;
+- `videoUrl` set to a Cloudinary MP4 under `shades-of-sg/uploaded-videos`;
+- `videoPublicId` set to the matching `shades-of-sg/uploaded-videos` public identifier;
+- duration set to 210 seconds.
+
+This proved that the final-video upload itself had succeeded and the remaining publishing prompt was a readiness-validation bug rather than a failed Cloudinary upload.
 
 ### Purple and Music-Video Background Toggle
 
@@ -3830,6 +3838,12 @@ When the player enables the video during a run, the video is mounted, moved to t
 
 If a Song has no `videoUrl`, gameplay automatically uses purple, disables the Music video choice, and presents a short availability explanation. The controls use semantic buttons, `aria-pressed`, visible focus rings, distinct text labels, and more than color alone to communicate the current selection.
 
+### Published-Song Readiness Follow-Up Fix
+
+The publishing assistant continued to show “Add a finished video before publishing” even after the final MP4 appeared in both `videoUrl` and `videoPublicId`. The root cause was the backend `publishValidation` status check. It accepted only `READY`, so an already `PUBLISHED` Song was reported as missing `status READY`. The frontend grouped `status READY` with video-related requirements and therefore displayed the misleading Generate AI Video and Upload Video choices.
+
+The backend readiness rule now accepts both `READY` and `PUBLISHED` as valid completed publication states. Existing DRAFT, GENERATING, and ARCHIVED safeguards remain unchanged. A regression assertion uploads a final MP4, publishes the Song, requests readiness again, and verifies that the response remains ready with an empty missing-task list and `songStatus: PUBLISHED`.
+
 ### Files Modified
 
 - `frontend/src/pages/RhythmHub.jsx`
@@ -3837,9 +3851,11 @@ If a Song has no `videoUrl`, gameplay automatically uses purple, disables the Mu
 - `frontend/src/App.css`
 - `frontend/src/App.test.jsx`
 - `frontend/src/components/RhythmGame.test.jsx`
+- `backend/controllers/songController.js`
+- `backend/tests/songLifecycle.test.js`
 - `ferlyn_journal.md`
 
-No backend implementation file, API route, model, migration, authentication rule, beatmap lifecycle, or score-persistence behavior was changed for this work.
+No API route, model, migration, authentication rule, beatmap lifecycle, or score-persistence behavior was changed. The only backend implementation change was the completed-status readiness correction from READY-only to READY-or-PUBLISHED.
 
 ### Test Coverage Added or Updated
 
@@ -3865,6 +3881,8 @@ The gameplay regression coverage now verifies:
 - Purple is selected automatically when no video exists;
 - the Music video choice is disabled and explained when unavailable.
 
+The backend lifecycle regression coverage now also verifies that a creator-uploaded final MP4 remains publish-ready after the Song transitions from `READY` to `PUBLISHED`.
+
 ### Verification Performed
 
 The final verified frontend state after the background-toggle work was:
@@ -3873,6 +3891,9 @@ The final verified frontend state after the background-toggle work was:
 - focused RhythmGame tests: one file passed, nine tests passed;
 - complete frontend Vitest suite: sixteen files passed, eighty-eight tests passed;
 - frontend ESLint: passed;
+- focused backend Song lifecycle suite: one suite passed, twenty-two tests passed;
+- complete backend Jest suite: six suites passed, seventy-five tests passed;
+- backend ESLint: passed;
 - Vite production build: passed with 1,906 modules transformed;
 - `git diff --check`: passed.
 
@@ -3884,13 +3905,58 @@ The public Rhythm Game hub now reads as a real Song-selection interface rather t
 
 Gameplay now makes its background source an explicit player choice. Users can retain the readable purple surface or view the Song's stored MP4 without affecting the audio clock, chart, scoring, guest behavior, registered score submission, creator preview restrictions, loading state, error state, or result flow.
 
+The publishing assistant now recognizes an already published Song with a valid final MP4 as complete instead of incorrectly asking the creator to generate or upload the video again.
+
 ### Remaining Work
 
-- Replace Sailor Song's temporary `placeholder-generation.mp4` URL with the intended creator-uploaded or completed AI-generated final video.
 - Reconcile the older local SQLite schema with the active application schema before using it for future provenance diagnostics; do not apply destructive synchronization to a deployed database.
+- Refresh the open Studio page after the backend reload and confirm the stale video prompt no longer appears for the already published Sailor Song.
 - Perform real-browser and real-device playtesting of the background toggle during countdown, active play, pause, restart, fullscreen, and reduced-motion configurations.
 - Consider JavaScript chunk splitting as a separate performance task if the production bundle advisory becomes a deployment concern.
 
 ### Lesson
 
-Beatmap content and visual media are related at the Song experience level but are separate data contracts. Keeping audio as the authoritative clock and treating video as an optional presentation layer makes the background safely user-selectable without compromising chart timing or score integrity. A stored URL also does not prove that media is final: provenance fields and the actual URL path must be checked before describing a video as uploaded or AI-generated.
+Beatmap content and visual media are related at the Song experience level but are separate data contracts. Keeping audio as the authoritative clock and treating video as an optional presentation layer makes the background safely user-selectable without compromising chart timing or score integrity. A stored URL also does not prove that media is final: provenance fields and the actual URL path must be checked before describing a video as uploaded or AI-generated. Readiness validation must additionally recognize terminal lifecycle states correctly; requiring a published record to return to READY can turn a successful upload into a misleading missing-media warning.
+
+---
+
+## 2026-07-14 — Published Final-Video Readiness Correction
+
+### Problem
+
+After a completed MP4 was uploaded successfully, Preview & Publish continued to display “Add a finished video before publishing” and offered Generate AI Video and Upload Video again. A live read-only API check confirmed that Sailor Song already had a Cloudinary `videoUrl`, a matching `videoPublicId`, a 210-second duration, and `PUBLISHED` status.
+
+### Root Cause
+
+The upload and Cloudinary persistence were working. The false prompt came from `publishValidation`, which considered only `READY` a valid completed state. When Studio checked an already `PUBLISHED` Song, readiness returned `status READY` as missing. The publishing modal grouped that missing status with video requirements and incorrectly presented the missing-video workflow.
+
+### Fix
+
+Publication readiness now accepts both `READY` and `PUBLISHED`. DRAFT, GENERATING, and ARCHIVED Songs still fail the completed-state check. No media URL, upload route, generation process, authentication rule, or public Song behavior was changed.
+
+### Regression Coverage
+
+The final-video lifecycle test now uploads an MP4, verifies readiness in READY, publishes the Song, checks readiness again, and confirms:
+
+- `ready` remains `true`;
+- `missing` remains empty;
+- `songStatus` is `PUBLISHED`.
+
+### Files Modified
+
+- `backend/controllers/songController.js`
+- `backend/tests/songLifecycle.test.js`
+- `ferlyn_journal.md`
+
+### Verification
+
+- focused Song lifecycle suite: twenty-two tests passed;
+- complete backend Jest suite: six suites and seventy-five tests passed;
+- backend ESLint: passed;
+- focused frontend App suite: sixteen tests passed;
+- Vite production build: passed with 1,906 modules transformed;
+- `git diff --check`: passed.
+
+### Outcome
+
+An already published Song with a valid uploaded or generated final video is now reported as publish-ready. Studio no longer mistakes the PUBLISHED lifecycle state for a missing video and should stop prompting the creator to generate or upload the same MP4 again.

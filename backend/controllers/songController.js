@@ -60,7 +60,7 @@ function publishValidation(song) {
     if (!song.coverImageUrl?.trim()) missing.push('coverImageUrl');
     if (!song.audioUrl?.trim()) missing.push('audioUrl');
     if (!song.videoUrl?.trim()) missing.push('videoUrl');
-    if (song.status !== 'READY') missing.push('status READY');
+    if (!['READY', 'PUBLISHED'].includes(song.status)) missing.push('status READY');
     return missing;
 }
 

@@ -232,6 +232,8 @@ test('creator can upload a final MP4 video and publish without an AI generation 
     const readiness = await request(app).get(`/api/songs/${song.id}/readiness`).set(auth(creatorToken));
     expect(readiness.body).toMatchObject({ missing: [], ready: true, songStatus: 'READY' });
     expect((await request(app).put(`/api/songs/${song.id}/publish`).set(auth(creatorToken))).status).toBe(200);
+    const publishedReadiness = await request(app).get(`/api/songs/${song.id}/readiness`).set(auth(creatorToken));
+    expect(publishedReadiness.body).toMatchObject({ missing: [], ready: true, songStatus: 'PUBLISHED' });
     upload.mockRestore();
 });
 

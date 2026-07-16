@@ -5178,7 +5178,47 @@ h1 {
 
 .video-frame {
   aspect-ratio: 16 / 9;
+  display: block;
+  max-width: 100%;
   min-height: 220px;
+  min-width: 0;
+  object-fit: contain;
+  width: 100%;
+}
+
+.song-experience-grid > *,
+.song-media-card {
+  min-width: 0;
+}
+
+.song-media-card {
+  align-content: start;
+  overflow: hidden;
+}
+
+.song-video-player {
+  aspect-ratio: 16 / 9;
+  background: #000000;
+  border: 1px solid rgba(216, 180, 254, 0.22);
+  border-radius: 8px;
+  min-height: 220px;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.song-video-player .video-frame {
+  border: 0;
+  border-radius: 0;
+  height: 100%;
+  inset: 0;
+  min-height: 0;
+  position: absolute;
+}
+
+.video-frame--cover {
+  height: auto;
 }
 
 .primary-link,

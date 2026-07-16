@@ -3742,50 +3742,40 @@ h1 {
 }
 
 .game-top-icons button {
-  font-size: 0;
-  height: 48px;
+  align-items: center;
+  background: rgba(9, 7, 24, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  display: inline-flex;
+  font-size: 0.78rem;
+  gap: 8px;
+  min-height: 44px;
   opacity: 0.86;
+  padding: 0 12px;
   position: relative;
-  width: 48px;
 }
 
 .game-top-icons button::before,
 .game-top-icons button::after {
-  content: '';
-  display: block;
-  position: absolute;
+  display: none;
 }
 
-.game-top-icons button:first-child::before {
-  border-bottom: 18px solid rgba(255, 255, 255, 0.72);
-  border-left: 20px solid transparent;
-  border-right: 20px solid transparent;
-  left: 4px;
-  top: 8px;
-}
-
-.game-top-icons button:first-child::after {
-  background: rgba(255, 255, 255, 0.72);
-  height: 20px;
-  left: 13px;
-  top: 25px;
-  width: 22px;
-}
-
-.game-top-icons button:nth-child(2)::before {
-  border: 4px solid rgba(255, 255, 255, 0.72);
-  height: 28px;
-  left: 8px;
-  top: 8px;
-  width: 28px;
-}
-
-.game-top-icons button:nth-child(2)::after {
-  background: #000;
+.game-top-icons svg,
+.game-controls svg,
+.settings-toggle svg,
+.pause-overlay svg,
+.overlay-start-button svg {
   height: 18px;
-  left: 16px;
-  top: 16px;
   width: 18px;
+}
+
+.game-top-icons button:hover,
+.game-top-icons button:focus-visible {
+  background: rgba(139, 92, 246, 0.28);
+  border-color: rgba(216, 180, 254, 0.58);
+  color: #fff;
+  outline: 3px solid rgba(216, 180, 254, 0.28);
+  outline-offset: 2px;
 }
 
 .game-controls .start-button {
@@ -6487,8 +6477,12 @@ textarea {
   }
 
   .game-top-icons button {
-    height: 42px;
-    width: 42px;
+    min-width: 44px;
+    width: auto;
+  }
+
+  .game-top-icons button span {
+    display: none;
   }
 
   .video-credit {

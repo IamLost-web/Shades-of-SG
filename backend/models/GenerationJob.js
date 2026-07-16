@@ -13,24 +13,14 @@ const GenerationJob = sequelize.define('GenerationJob', {
         field: 'song_id',
     },
     status: {
-        type: DataTypes.ENUM('QUEUED', 'PROCESSING', 'COMPLETED', 'FAILED'),
+        type: DataTypes.ENUM('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'FAILED'),
         allowNull: false,
-        defaultValue: 'QUEUED',
+        defaultValue: 'NOT_STARTED',
     },
     errorMessage: {
         type: DataTypes.TEXT,
         allowNull: true,
         field: 'error_message',
-    },
-    startedAt: {
-        type: DataTypes.DATE,
-        allowNull: true,
-        field: 'started_at',
-    },
-    completedAt: {
-        type: DataTypes.DATE,
-        allowNull: true,
-        field: 'completed_at',
     },
 }, {
     tableName: 'generation_jobs',

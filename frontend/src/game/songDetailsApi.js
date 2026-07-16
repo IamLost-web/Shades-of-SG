@@ -1,9 +1,7 @@
 import { API_URL } from '../services/apiConfig'
 
-export async function fetchSongDetails(songId, { preview = false, signal, token } = {}) {
-  const path = preview ? `/songs/creator/${encodeURIComponent(songId)}` : `/songs/${encodeURIComponent(songId)}`
-  const headers = preview && token ? { Authorization: `Bearer ${token}` } : undefined
-  const response = await fetch(`${API_URL}${path}`, { headers, signal })
+export async function fetchSongDetails(songId) {
+  const response = await fetch(`${API_URL}/songs/${encodeURIComponent(songId)}`)
 
   if (!response.ok) {
     throw new Error('Song details could not be loaded')

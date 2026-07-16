@@ -412,7 +412,6 @@ export default function CreatorGenerationJobs() {
           </div>
         </div>
       )}
-      
     </CreatorPageShell>
   )
 }

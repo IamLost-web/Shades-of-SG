@@ -52,7 +52,6 @@ export default function AudioPreviewCard({ title = '', artist = '', audioUrl = '
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [playbackError, setPlaybackError] = useState('')
   const displayTitle = getDisplayValue(title, 'Song Title')
   const displayArtist = getDisplayValue(artist, 'Artist Name')
   const progress = duration ? (currentTime / duration) * 100 : 0
@@ -74,7 +73,6 @@ export default function AudioPreviewCard({ title = '', artist = '', audioUrl = '
       setIsPlaying(true)
     } catch {
       setIsPlaying(false)
-      setPlaybackError('This audio file could not be played in this browser. Try another MP3 file.')
     }
   }
 
@@ -175,7 +173,6 @@ export default function AudioPreviewCard({ title = '', artist = '', audioUrl = '
           type="range"
           value={currentTime}
         />
-        {playbackError && <p role="alert">{playbackError}</p>}
       </div>
 
       <audio
@@ -191,20 +188,14 @@ export default function AudioPreviewCard({ title = '', artist = '', audioUrl = '
           setCurrentTime(0)
           setIsPlaying(false)
         }}
-        onError={() => {
-          setIsPlaying(false)
-          setPlaybackError('This audio file could not be loaded. Please choose a valid MP3 file.')
-        }}
         onLoadedMetadata={(event) => {
           setCurrentTime(0)
           setDuration(event.currentTarget.duration)
           setIsPlaying(false)
-          setPlaybackError('')
         }}
         onPause={() => setIsPlaying(false)}
         onPlay={() => setIsPlaying(true)}
         onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-        preload="auto"
       />
     </div>
   )

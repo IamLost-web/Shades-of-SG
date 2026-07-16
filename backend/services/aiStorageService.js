@@ -43,7 +43,11 @@ const uploadVideoStream = (fileData) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       { resource_type: 'video', folder: 'shades-of-sg/uploaded-videos' },
       (error, result) => {
-        if (error) return reject(new Error(`Cloudinary Video Upload Error: ${error.message}`, { cause: error }))
+        if (error) {
+          return reject(
+            new Error(`Cloudinary Video Upload Error: ${error.message}`, { cause: error })
+          )
+        }
         return resolve({
           duration: Math.round(result.duration || 0),
           videoPublicId: result.public_id,
@@ -52,25 +56,35 @@ const uploadVideoStream = (fileData) => {
       }
     )
 
-    if (Buffer.isBuffer(fileData)) Readable.from(fileData).pipe(uploadStream)
-    else if (fileData && typeof fileData.pipe === 'function') fileData.pipe(uploadStream)
-    else reject(new Error('Invalid file data provided.'))
+    if (Buffer.isBuffer(fileData)) {
+      Readable.from(fileData).pipe(uploadStream)
+    } else if (fileData && typeof fileData.pipe === 'function') {
+      fileData.pipe(uploadStream)
+    } else {
+      reject(new Error('Invalid file data provided.'))
+    }
   })
 }
 
 /**
  * (PHASE 3) Fetches an image from a temporary URL and uploads it to Cloudinary as a Buffer stream.
  */
-const uploadImageFromUrl = async (imageUrl) => {
+const uploadImageFromUrl = async (imageSource) => {
   // ... (Your existing code untouched)
   try {
-    const response = await fetch(imageUrl)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image from DALL-E URL: ${response.statusText}`)
+    let buffer;
+    if (imageSource.startsWith('http://') || imageSource.startsWith('https://')) {
+      const response = await fetch(imageSource)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image from URL: ${response.statusText}`)
+      }
+      const arrayBuffer = await response.arrayBuffer()
+      buffer = Buffer.from(arrayBuffer)
+    } else {
+      // Handle raw base64 string (strip data URI prefix if accidentally included)
+      const base64Data = imageSource.replace(/^data:image\/\w+;base64,/, '')
+      buffer = Buffer.from(base64Data, 'base64')
     }
-
-    const arrayBuffer = await response.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
 
     return await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
@@ -96,15 +110,17 @@ const uploadImageFromUrl = async (imageUrl) => {
 /**
  * (PHASE 4) Uploads a compiled MP4 video to Cloudinary from the local disk.
  * @param {string} localFilePath - The local path to the generated .mp4 file.
- * @returns {Promise<{videoUrl: string, videoPublicId: string}>} Stored video identifiers
+ * @param {number|string} jobId - The job ID to use in the file name.
+ * @returns {Promise<string>} The permanent Cloudinary secure_url
  */
-const uploadCompiledVideo = (localFilePath) => {
+const uploadCompiledVideo = (localFilePath, jobId) => {
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload(
       localFilePath,
       {
         resource_type: 'video',
         folder: 'shades-of-sg/compiled-videos',
+        public_id: `export_job_${jobId}_${Date.now()}`
       },
       (error, result) => {
         if (error) {
@@ -112,10 +128,7 @@ const uploadCompiledVideo = (localFilePath) => {
             new Error(`Cloudinary Video Upload Error: ${error.message}`, { cause: error })
           )
         }
-        resolve({
-          videoUrl: result.secure_url,
-          videoPublicId: result.public_id,
-        })
+        resolve(result.secure_url)
       }
     )
   })

@@ -1,5 +1,6 @@
 const OPENAI_TRANSCRIPTION_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const MAX_TRANSCRIPTION_BYTES = 25 * 1024 * 1024;
+const DEFAULT_TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
 const PROMPT_ECHO_TEXT = 'Preserve repeated choruses, repeated phrases, ad-libs, and line breaks as much as possible.';
 
 const SUPPORTED_MIME_TYPES = new Set([
@@ -38,7 +39,7 @@ function getTranscriptionConfigStatus() {
     return {
         configured: Boolean(process.env.OPENAI_API_KEY),
         maxFileSizeMb: MAX_TRANSCRIPTION_BYTES / (1024 * 1024),
-        model: process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-mini-transcribe',
+        model: process.env.OPENAI_TRANSCRIPTION_MODEL || DEFAULT_TRANSCRIPTION_MODEL,
         supportedMimeTypes: Array.from(SUPPORTED_MIME_TYPES).sort(),
     };
 }
@@ -97,8 +98,9 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
     }
 
     const formData = new FormData();
-    formData.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-transcribe');
-    formData.append('response_format', 'json');
+    formData.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL || DEFAULT_TRANSCRIPTION_MODEL);
+    formData.append('response_format', 'verbose_json');
+    formData.append('timestamp_granularities[]', 'segment');
     formData.append('file', new Blob([mediaBuffer], { type: normalizedMimeType }), fileName);
 
     const response = await fetch(OPENAI_TRANSCRIPTION_URL, {
@@ -127,7 +129,8 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
     return {
         lyrics: formatLyricsDraft(rawLyrics),
         rawLyrics,
-        model: process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-transcribe',
+        segments: responseBody.segments || [],
+        model: process.env.OPENAI_TRANSCRIPTION_MODEL || DEFAULT_TRANSCRIPTION_MODEL,
     };
 }
 
@@ -250,6 +253,7 @@ function groupLinesIntoStanzas(lines) {
 }
 
 module.exports = {
+    DEFAULT_TRANSCRIPTION_MODEL,
     formatLyricsDraft,
     getTranscriptionConfigStatus,
     MAX_TRANSCRIPTION_BYTES,

@@ -4,6 +4,11 @@ const { GenerationJob, Song, SceneSegment, GeneratedFrame } = require('../models
 const { generateScenePlan } = require('../services/aiScenePlanner')
 const { generateFrames } = require('../services/frameGenerator')
 const { assembleVideo } = require('../services/videoAssembler')
+const { OpenAI } = require('openai')
+const cloudinary = require('../config/cloudinary')
+const aiStorageService = require('../services/aiStorageService')
+const { extractAudioFromYouTube, downloadMediaFromUrl } = require('../services/audioExtractionService')
+const { transcribeMediaBuffer } = require('../services/transcriptionService')
 
 const completeGeneration = async (jobId) => {
   const job = await GenerationJob.findByPk(jobId)
@@ -125,7 +130,6 @@ const startGeneration = async (req, res, next) => {
       throw error
     }
 
-    // 1. Create the tracking ticket
     let job
     try {
       job = await GenerationJob.create({ songId, status: 'QUEUED' })
@@ -137,11 +141,9 @@ const startGeneration = async (req, res, next) => {
       throw error
     }
 
-    // 2. Fire the background worker WITHOUT awaiting it
     await song.update({ status: 'GENERATING' })
     if (process.env.NODE_ENV !== 'test') runGenerationPipeline(job.id).catch(console.error)
 
-    // 3. Immediately return the ticket ID to the frontend
     return res.status(202).json({
       success: true,
       data: job,
@@ -160,10 +162,9 @@ const getGenerationStatus = async (req, res, next) => {
       where: { id },
       include: [
         {
-          model: Song, 
-          as: 'song', 
+          model: Song,
+          as: 'song',
           where: { creatorId: req.authUserRecord.id },
-          attributes: ['id', 'title', 'artist', 'audioUrl', 'videoUrl', 'videoPublicId', 'status'],
           include: [
             {
               model: SceneSegment,
@@ -187,12 +188,9 @@ const getGenerationStatus = async (req, res, next) => {
       throw error
     }
 
-    const data = job.get({ plain: true })
-    const placeholderVideoUrl = process.env.PLACEHOLDER_VIDEO_URL?.trim()
-    data.videoIsTemporary = Boolean(placeholderVideoUrl && data.song?.videoUrl === placeholderVideoUrl)
     return res.json({
       success: true,
-      data,
+      data: job,
     })
   } catch (error) {
     next(error)
@@ -202,7 +200,12 @@ const getGenerationStatus = async (req, res, next) => {
 const getAllJobs = async (req, res, next) => {
   try {
     const jobs = await GenerationJob.findAll({
-      include: [{ model: Song, as: 'song', attributes: ['id', 'title', 'artist', 'status', 'videoUrl'], where: { creatorId: req.authUserRecord.id } }],
+      include: [{
+        model: Song,
+        as: 'song',
+        attributes: ['id', 'title', 'artist', 'creatorId'],
+        where: { creatorId: req.authUserRecord.id },
+      }],
       order: [['createdAt', 'DESC']],
     })
 
@@ -226,7 +229,43 @@ const runGenerationPipeline = async (jobId) => {
     const job = await GenerationJob.findByPk(jobId)
     if (!job) throw new Error(`Job ${jobId} not found in database.`)
 
+    const song = await Song.findByPk(job.songId)
+    if (!song) throw new Error(`Song ${job.songId} not found.`)
+
     await job.update({ status: 'PROCESSING', startedAt: new Date(), errorMessage: null })
+
+    console.log(`[Phase 1] Audio Extraction & Whisper Transcription...`)
+    if (!song.transcriptionSegments || song.transcriptionSegments.length === 0) {
+      const targetUrl = song.videoUrl || song.audioUrl || 'https://youtu.be/hYIOC3y0tmg'
+
+      let extractedInfo;
+      if (/(youtube\.com|youtu\.be)/i.test(targetUrl)) {
+        console.log(`[Phase 1] Extracting YouTube audio from ${targetUrl}...`)
+        extractedInfo = await extractAudioFromYouTube(targetUrl)
+      } else {
+        console.log(`[Phase 1] Downloading direct media from ${targetUrl}...`)
+        extractedInfo = await downloadMediaFromUrl(targetUrl, jobId)
+      }
+
+      try {
+        const mediaBuffer = await fs.readFile(extractedInfo.filePath)
+        console.log(`[Phase 1] Transcribing audio via Whisper API...`)
+        const transcription = await transcribeMediaBuffer({
+          fileName: extractedInfo.fileName,
+          mediaBuffer,
+          mimeType: extractedInfo.mimeType
+        })
+
+        await song.update({ transcriptionSegments: transcription.segments })
+        console.log(`[Phase 1] Saved ${transcription.segments.length} segments to database.`)
+      } finally {
+        await extractedInfo.cleanup()
+      }
+    } else {
+      console.log(`[Phase 1] Skipped. transcriptionSegments already exist.`)
+    }
+    await assertGenerationIsActive(jobId)
+
     console.log(`[Phase 2] Generating Scene Plan...`)
     await generateScenePlan(jobId, job.songId)
     await assertGenerationIsActive(jobId)
@@ -244,7 +283,6 @@ const runGenerationPipeline = async (jobId) => {
     }
     await assertGenerationIsActive(jobId)
 
-    // Update DB on Success
     await completeGeneration(job.id)
 
     // Run Cleanup on successful completion
@@ -265,10 +303,116 @@ const runGenerationPipeline = async (jobId) => {
   }
 }
 
+const exportVideo = async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const { burnCaptions = true } = req.body || {};
+    const job = await GenerationJob.findOne({
+      where: { id: jobId },
+      include: [{
+        model: Song,
+        as: 'song',
+        attributes: ['id', 'creatorId'],
+        where: { creatorId: req.authUserRecord.id },
+      }],
+    });
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    // Set job back to in progress so the frontend sees it compiling
+    await job.update({ status: 'PROCESSING', errorMessage: null, startedAt: new Date() });
+
+    // Wait for the video compilation to finish
+    const assembleResult = await assembleVideo(jobId, job.songId, burnCaptions);
+    await job.update({ status: 'COMPLETED', completedAt: new Date() });
+    await job.reload();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Export completed',
+      data: job,
+      videoUrl: assembleResult.videoUrl
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+const regenerateFrame = async (req, res, next) => {
+  try {
+    const { frameId } = req.params;
+    const { userFeedback } = req.body;
+
+    const frame = await GeneratedFrame.findByPk(frameId, {
+      include: [{ model: SceneSegment, as: 'sceneSegment' }]
+    });
+
+    if (!frame) return res.status(404).json({ success: false, message: 'Frame not found' });
+
+    const segment = frame.sceneSegment;
+    if (!segment) return res.status(404).json({ success: false, message: 'SceneSegment not found' });
+
+    let prompt = segment.visualPrompt || "Cinematic scene";
+    if (userFeedback && userFeedback.trim()) {
+      prompt = `${prompt}. User instructions to modify this scene: ${userFeedback}`;
+    }
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    console.log(`[Regenerate] Calling GPT Image 2 for frame ${frameId}...`);
+    const response = await openai.images.generate({
+      model: 'gpt-image-2',
+      prompt: prompt.substring(0, 4000),
+      size: '1792x1024',
+      n: 1,
+    });
+
+    let openAiImageUrl;
+    if (response.data?.[0]?.b64_json) {
+      openAiImageUrl = 'data:image/png;base64,' + response.data[0].b64_json;
+    } else {
+      openAiImageUrl = response.data?.[0]?.url || response.data?.[0]?.image_url || response.data?.[0]?.asset_url || response.data?.[0]?.link;
+      if (!openAiImageUrl && typeof response.data?.[0] === 'string') openAiImageUrl = response.data[0];
+    }
+
+    if (!openAiImageUrl) throw new Error('Missing image URL from OpenAI');
+
+    let finalImageUrl;
+    if (openAiImageUrl.startsWith('data:image/')) {
+      const uploadResult = await new Promise((resolve, reject) => {
+         cloudinary.uploader.upload(openAiImageUrl, {
+           folder: 'shades-of-sg/frames',
+           resource_type: 'image'
+         }, (error, result) => {
+           if (error) reject(new Error(`Cloudinary Data URI Upload Error: ${error.message}`));
+           else resolve(result);
+         });
+      });
+      finalImageUrl = uploadResult.secure_url;
+    } else {
+      finalImageUrl = await aiStorageService.uploadImageFromUrl(openAiImageUrl);
+    }
+
+    frame.imageUrl = finalImageUrl;
+    await frame.save();
+
+    segment.imageUrl = finalImageUrl;
+    await segment.save();
+
+    return res.json({ success: true, data: frame });
+  } catch (error) {
+    console.error(`[Regenerate Error]:`, error);
+    next(error);
+  }
+}
+
 module.exports = {
   startGeneration,
   getGenerationStatus,
   getAllJobs,
+  exportVideo,
+  regenerateFrame,
   runGenerationPipeline,
   completeGeneration,
   failGeneration,

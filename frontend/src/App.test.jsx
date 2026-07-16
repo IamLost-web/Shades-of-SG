@@ -368,7 +368,7 @@ describe('App', () => {
       ok: true, status: 200,
     })))
     render(<AuthProvider><App /></AuthProvider>)
-    expect(await screen.findByRole('heading', { name: 'Song Without Rhythm' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Song Without Rhythm' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /play rhythm/i })).not.toBeInTheDocument()
     expect(screen.getByText('Rhythm game unavailable')).toHaveAttribute('title', 'This rhythm game is not available yet.')
   })

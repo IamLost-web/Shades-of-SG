@@ -3,7 +3,6 @@ import { LogOut, Pencil, Settings, UserRound } from 'lucide-react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import BrandLogo from './BrandLogo'
-import LanguageSwitcher from './LanguageSwitcher'
 
 const navigationByRole = {
   creator: [
@@ -99,7 +98,6 @@ export default function Navbar({ role = 'guest', variant = 'public' }) {
 
             {isRegistered ? (
               <div className="public-navbar__utilities">
-                <LanguageSwitcher />
                 <div className="registered-navbar__account" ref={accountRef}>
                   <button
                     aria-expanded={isAccountOpen}
@@ -135,7 +133,6 @@ export default function Navbar({ role = 'guest', variant = 'public' }) {
               </div>
             ) : (
               <div className="guest-navbar__auth">
-                <LanguageSwitcher />
                 <NavLink className="guest-navbar__login" onClick={() => setIsOpen(false)} to="/login">
                   Login
                 </NavLink>

@@ -60,6 +60,15 @@ router.put('/:id/unpublish', requireCreator, songController.unpublishSong);
 router.put('/:id/archive', requireCreator, songController.archiveSong);
 router.put('/:id/unarchive', requireCreator, songController.unarchiveSong);
 router.delete('/:id', requireCreator, songController.deleteSong);
+router.get('/demo-song', (req, res) => res.json({
+    song: {
+        id: 'demo-song',
+        theme: 'Heritage',
+        title: 'Demo Rhythm Track',
+        thumbnail_url: '',
+        video_url: '/videos/exploding-kittens-placeholder.mp4',
+    },
+}));
 router.get('/', songController.listPublicSongs);
 router.get('/:id', songController.getPublicSong);
 

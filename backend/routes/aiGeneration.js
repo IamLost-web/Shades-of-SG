@@ -4,6 +4,8 @@ const {
   getAllJobs,
   getGenerationStatus,
   startGeneration,
+  exportVideo,
+  regenerateFrame
 } = require('../controllers/generationController')
 const { requireCreator } = require('../middleware/auth')
 
@@ -11,7 +13,12 @@ const { requireCreator } = require('../middleware/auth')
 router.get('/', requireCreator, getAllJobs)
 router.get('/:id/status', requireCreator, getGenerationStatus)
 
-// Starts generation for an existing creator-owned Song.
 router.post('/start', requireCreator, startGeneration)
+
+// Export Final Video
+router.post('/:jobId/export', requireCreator, exportVideo)
+
+// Regenerate single frame
+router.post('/frame/:frameId/regenerate', requireCreator, regenerateFrame)
 
 module.exports = router

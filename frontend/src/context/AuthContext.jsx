@@ -3,9 +3,6 @@ import { createContext, useContext, useMemo, useState } from 'react'
 const AuthContext = createContext(null)
 
 function readInitialAuth(resetOnPublicEntry) {
-  // A direct application entry at the public root must always begin at the
-  // guest landing experience. Authenticated routes and in-app navigation do
-  // not remount the provider, so normal signed-in workflows remain intact.
   if (resetOnPublicEntry && window.location.pathname === '/') {
     localStorage.removeItem('authToken')
     localStorage.removeItem('authUser')
@@ -14,13 +11,11 @@ function readInitialAuth(resetOnPublicEntry) {
 
   const storedUser = localStorage.getItem('authUser')
   let user = null
-
   try {
     user = storedUser ? JSON.parse(storedUser) : null
   } catch {
     localStorage.removeItem('authUser')
   }
-
   return { token: localStorage.getItem('authToken'), user }
 }
 

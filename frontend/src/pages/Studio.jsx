@@ -327,7 +327,7 @@ export default function Studio() {
   if (isLoading) return <div className="studio-page"><p role="status">Loading saved draft…</p></div>
 
   return <div className="studio-page">
-    <StudioHeader activeStep={studioStep} isBusy={isBusy} onBackToLyrics={() => setStudioStep(2)} onGenerateVideo={handleGenerateVideo} onSaveDraft={() => saveDraft().catch(() => {})} />
+    <StudioHeader activeStep={studioStep} isBusy={isBusy} onBackToLyrics={() => setStudioStep(2)} onGenerateVideo={handleGenerateVideo} onPublishSong={handlePublishSong} onSaveDraft={() => saveDraft().catch(() => {})} />
     {message.text && <div className={`studio-workflow-message studio-action-toast is-${message.type}`} role={message.type === 'error' ? 'alert' : 'status'}>{message.text}</div>}
     {studioStep === 3 ? <section className="studio-form-column">
       <MetadataStepper activeStep={studioStep} compact onStepChange={setStudioStep} />

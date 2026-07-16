@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const User = require('../models/User');
+
 const HASH_ITERATIONS = 120000;
 const HASH_KEY_LENGTH = 64;
 const HASH_DIGEST = 'sha512';
@@ -6,11 +8,9 @@ const HASH_DIGEST = 'sha512';
 function getTokenSecret() {
     const secret = process.env.AUTH_TOKEN_SECRET || process.env.JWT_SECRET;
     if (secret) return secret;
-
     if (process.env.NODE_ENV === 'production') {
         throw new Error('AUTH_TOKEN_SECRET or JWT_SECRET is required in production.');
     }
-
     return 'local-dev-auth-secret';
 }
 
@@ -40,7 +40,6 @@ function createToken(user) {
     const secret = getTokenSecret();
     const payload = Buffer.from(JSON.stringify({
         email: user.email,
-        createdAt: user.createdAt,
         id: user.id,
         role: user.role,
     })).toString('base64url');
@@ -85,9 +84,34 @@ function serializeUser(user) {
     };
 }
 
+async function seedCreatorAccount() {
+    const email = process.env.SEED_CREATOR_EMAIL;
+    const password = process.env.SEED_CREATOR_PASSWORD;
+
+    if (!email || !password) {
+        return;
+    }
+
+    const [user, created] = await User.findOrCreate({
+        defaults: {
+            email,
+            name: process.env.SEED_CREATOR_NAME || 'Violet',
+            passwordHash: hashPassword(password),
+            role: 'CREATOR',
+        },
+        where: { email },
+    });
+
+    if (!created && user.role !== 'CREATOR') {
+        user.role = 'CREATOR';
+        await user.save();
+    }
+}
+
 module.exports = {
     createToken,
     hashPassword,
+    seedCreatorAccount,
     serializeUser,
     verifyToken,
     verifyPassword,

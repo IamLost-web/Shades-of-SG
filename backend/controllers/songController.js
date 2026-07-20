@@ -364,7 +364,8 @@ async function deleteSong(req, res, next) {
     try {
         const song = await findOwnedSong(req);
         if (!song) return res.status(404).json({ message: 'Song not found.' });
-        if (song.status === 'GENERATING') return res.status(409).json({ message: 'A generating song cannot be deleted.' });
+        const activeJob = await GenerationJob.findOne({ where: { songId: song.id, status: ACTIVE_GENERATION_STATUSES } });
+        if (song.status === 'GENERATING' && activeJob) return res.status(409).json({ message: 'A generating song cannot be deleted.' });
         const segments = await SceneSegment.findAll({
             where: { songId: song.id },
             include: [{ model: GeneratedFrame, as: 'generatedFrames', required: false }],

@@ -29,11 +29,15 @@ async function extractAudioFromYouTube(youtubeUrl) {
     const jobId = `youtube-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const outputTemplate = path.join(TEMP_DIR, `${jobId}.%(ext)s`);
 
+    const cookiesTxtPath = path.join(__dirname, '..', 'cookies.txt');
+    const cookieArgs = require('fs').existsSync(cookiesTxtPath) ? ['--cookies', cookiesTxtPath] : [];
+
     await runYtDlp([
         '--no-playlist',
         '--no-progress',
         '--max-filesize',
         `${MAX_YOUTUBE_AUDIO_BYTES}`,
+        ...cookieArgs,
         '-f',
         'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
         '-o',

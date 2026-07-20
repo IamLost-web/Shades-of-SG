@@ -347,6 +347,59 @@ const exportVideo = async (req, res, next) => {
   }
 }
 
+const deleteJob = async (req, res, next) => {
+  try {
+    const { id } = req.params
+
+    const job = await GenerationJob.findOne({
+      where: { id },
+      include: [{
+        model: Song,
+        as: 'song',
+        attributes: ['id', 'creatorId'],
+        where: { creatorId: req.authUserRecord.id },
+      }],
+    })
+
+    if (!job) {
+      const error = new Error('Generation job not found.')
+      error.statusCode = 404
+      throw error
+    }
+
+    if (job.status === 'PROCESSING') {
+      const error = new Error('Cannot delete a job that is currently processing.')
+      error.statusCode = 409
+      throw error
+    }
+
+    // Cascade: delete generated frames, then scene segments, then the job itself, then the song
+    const segments = await SceneSegment.findAll({ where: { songId: job.songId } })
+    const segmentIds = segments.map((s) => s.id)
+
+    if (segmentIds.length > 0) {
+      await GeneratedFrame.destroy({ where: { sceneSegmentId: segmentIds } })
+    }
+    await SceneSegment.destroy({ where: { songId: job.songId } })
+    
+    // Save songId before destroying the job
+    const songIdToDelete = job.songId
+    await job.destroy()
+    
+    // Finally, delete the orphaned song record
+    if (songIdToDelete) {
+      await Song.destroy({ where: { id: songIdToDelete } })
+    }
+
+    // Clean up any leftover temp files
+    await cleanupJobFiles(id)
+
+    return res.json({ success: true, message: 'Job deleted.' })
+  } catch (error) {
+    next(error)
+  }
+}
+
 const regenerateFrame = async (req, res, next) => {
   try {
     const { frameId } = req.params;
@@ -419,6 +472,7 @@ module.exports = {
   startGeneration,
   getGenerationStatus,
   getAllJobs,
+  deleteJob,
   exportVideo,
   regenerateFrame,
   runGenerationPipeline,

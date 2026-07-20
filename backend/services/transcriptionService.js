@@ -126,8 +126,18 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
         throw error;
     }
 
+    let formattedLyrics = '';
+    if (responseBody.segments && responseBody.segments.length > 0) {
+        formattedLyrics = responseBody.segments
+            .map(s => s.text.trim())
+            .filter(Boolean)
+            .join('\n');
+    } else {
+        formattedLyrics = formatLyricsDraft(rawLyrics);
+    }
+
     return {
-        lyrics: formatLyricsDraft(rawLyrics),
+        lyrics: formattedLyrics,
         rawLyrics,
         segments: responseBody.segments || [],
         model: process.env.OPENAI_TRANSCRIPTION_MODEL || DEFAULT_TRANSCRIPTION_MODEL,

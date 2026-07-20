@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Maximize2, Pause, Play, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { DIFFICULTIES, loadBeatmap } from '../game/beatmapLoader'
+import { getHoldRenderGeometry } from '../game/rhythmRenderer'
 import { createResult, storeResult } from '../game/results'
 import { fetchSongDetails } from '../game/songDetailsApi'
 import { useAuth } from '../context/AuthContext'
@@ -61,23 +62,21 @@ function drawGame(canvas, notes, songTimeMs, difficulty, pressedLanes, noteSpeed
   for (const note of notes) {
     if (!['pending', 'holding'].includes(note.status)) continue
     const progress = getNoteProgress(note.startMs, songTimeMs, difficulty, noteSpeed)
-    if (progress < -0.1 || progress > 1.22) continue
+    if (note.status !== 'holding' && (progress < -0.1 || progress > 1.22)) continue
     const lane = LANES[note.lane]
     const x = note.lane * laneWidth + laneWidth * 0.1
     const noteWidth = laneWidth * 0.8
-    const headY = progress * hitLineY
+    let headY = progress * hitLineY
     if (note.type === 'hold') {
-      const tailProgress = getNoteProgress(note.endMs, songTimeMs, difficulty, noteSpeed)
-      const tailY = tailProgress * hitLineY
-      const top = Math.min(headY, tailY)
-      const bodyHeight = Math.max(16, Math.abs(headY - tailY))
+      const geometry = getHoldRenderGeometry(note, songTimeMs, difficulty, noteSpeed, hitLineY)
+      headY = geometry.headY
       context.fillStyle = `${lane.color}72`
-      context.fillRect(x + noteWidth * 0.22, top, noteWidth * 0.56, bodyHeight)
+      context.fillRect(x + noteWidth * 0.22, geometry.top, noteWidth * 0.56, geometry.bodyHeight)
       context.strokeStyle = `${lane.color}dd`
       context.lineWidth = 2
-      context.strokeRect(x + noteWidth * 0.22, top, noteWidth * 0.56, bodyHeight)
+      context.strokeRect(x + noteWidth * 0.22, geometry.top, noteWidth * 0.56, geometry.bodyHeight)
       context.fillStyle = lane.color
-      context.fillRect(x, tailY - 7, noteWidth, 14)
+      context.fillRect(x, geometry.tailY - 7, noteWidth, 14)
     }
     const gradient = context.createLinearGradient(x, headY, x + noteWidth, headY)
     gradient.addColorStop(0, '#fff')
@@ -304,13 +303,13 @@ export default function RhythmGame() {
           syncStats(applyJudgement(statsRef.current, 'MISS'))
           showJudgement('MISS')
           changed = true
-        } else if (note.status === 'holding' && now - note.endMs > JUDGEMENT_WINDOWS.BAD) {
+        } else if (note.status === 'holding' && now >= note.endMs) {
           const hold = activeHoldsRef.current.get(note.lane)
-          const next = completeHold(statsRef.current, { startJudgement: hold?.startJudgement || 'MISS', releaseJudgement: 'MISS', sustainedRatio: 1 })
+          const next = completeHold(statsRef.current, { startJudgement: hold?.startJudgement || 'MISS', releaseJudgement: 'PERFECT', sustainedRatio: 1 })
           syncStats(next)
           activeHoldsRef.current.delete(note.lane)
-          updateNote(note.id, { status: 'missed' })
-          showJudgement('MISS HOLD')
+          updateNote(note.id, { status: 'hit' })
+          showJudgement('HOLD COMPLETE')
           changed = true
         }
       }
@@ -464,11 +463,11 @@ export default function RhythmGame() {
         <div className="game-layout">
           <aside className="side-panel stats-panel" aria-label="Game stats">
             <p className="panel-kicker">Live performance</p>
-            <div><span>Hit Rate</span><strong>{accuracy.toFixed(2)}%</strong></div>
-            <div><span>Combo</span><strong>{stats.combo}<small>x</small></strong></div>
-            <div><span>Score</span><strong>{stats.score.toLocaleString()}</strong></div>
-            <div className="mini-stat"><span>Max combo</span><b>{stats.maxCombo}</b></div>
-            <div className="mini-stat"><span>Misses</span><b>{stats.judgements.MISS}</b></div>
+            <div><span>Hit Rate</span><strong className="rhythm-stat-value">{accuracy.toFixed(2)}%</strong></div>
+            <div><span>Combo</span><strong className="rhythm-stat-value">{stats.combo}<small>x</small></strong></div>
+            <div><span>Score</span><strong className="rhythm-stat-value">{stats.score.toLocaleString()}</strong></div>
+            <div className="mini-stat"><span>Max combo</span><strong className="rhythm-stat-value">{stats.maxCombo}</strong></div>
+            <div className="mini-stat"><span>Misses</span><strong className="rhythm-stat-value">{stats.judgements.MISS}</strong></div>
             <p className="current-summary">{judgement || 'Keep the rhythm'}</p>
           </aside>
           <div className="board-column">

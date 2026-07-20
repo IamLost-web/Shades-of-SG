@@ -112,6 +112,7 @@ describe('App', () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/studio/song-123')
+    const savedAt = new Date('2026-07-20T14:34:00.000Z')
     vi.stubGlobal('fetch', vi.fn(async (url) => ({
       json: async () => String(url).includes('/readiness')
         ? { generationStatus: null, missing: ['coverImageUrl'], ready: false, songStatus: 'DRAFT' }
@@ -120,7 +121,7 @@ describe('App', () => {
               artist: 'Studio Artist', audioUrl: 'https://media.example/saved-track.mp3', description: 'Saved description', id: 'song-123',
               languages: ['English'], moodTags: ['hopeful'], otherLanguages: [],
               rawLyrics: 'Saved lyrics', status: 'DRAFT', theme: 'Community',
-              title: 'Saved Studio Draft', updatedAt: new Date().toISOString(),
+              title: 'Saved Studio Draft', updatedAt: savedAt.toISOString(),
             },
           },
       ok: true,
@@ -134,6 +135,7 @@ describe('App', () => {
     expect(screen.getByText('Saved media: saved-track.mp3')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open' })).toHaveAttribute('href', 'https://media.example/saved-track.mp3')
     expect(screen.getByRole('heading', { name: 'Rhythm Game' })).toBeInTheDocument()
+    expect(screen.getAllByText(`Draft last saved ${savedAt.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`).length).toBeGreaterThan(0)
     expect(window.location.pathname).toBe('/creator/studio/song-123')
   })
 

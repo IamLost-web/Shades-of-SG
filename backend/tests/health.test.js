@@ -1,5 +1,6 @@
 const request = require('supertest');
 const app = require('../server');
+const sequelize = require('../config/database');
 const { createToken } = require('../services/authService');
 
 test('GET /api/health returns service health', async () => {
@@ -10,6 +11,10 @@ test('GET /api/health returns service health', async () => {
         status: 'ok',
         service: 'shades-of-sg-api',
     });
+});
+
+test('tests are isolated from configured production databases', () => {
+    expect(sequelize.getDialect()).toBe('sqlite');
 });
 
 test('CORS allows the configured local frontend origin', async () => {

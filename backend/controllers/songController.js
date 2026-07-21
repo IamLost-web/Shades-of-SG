@@ -309,6 +309,9 @@ async function uploadSongVideo(req, res, next) {
         if (!req.file) return res.status(400).json({ message: 'Choose an MP4 or WebM video to upload.' });
         const previousPublicId = song.videoPublicId;
         const uploaded = await aiStorageService.uploadVideoStream(req.file.buffer);
+        const currentDuration = Number(song.durationSecs);
+        const uploadedDuration = Number(uploaded.duration);
+        const useVideoAsAudio = !song.audioUrl?.trim();
         await GenerationJob.update({
             status: 'FAILED',
             errorMessage: 'AI generation stopped because the creator uploaded a finished video.',
@@ -317,6 +320,14 @@ async function uploadSongVideo(req, res, next) {
             status: song.status === 'PUBLISHED' ? 'PUBLISHED' : 'READY',
             videoPublicId: uploaded.videoPublicId,
             videoUrl: uploaded.videoUrl,
+            ...(!Number.isFinite(currentDuration) || currentDuration < 5
+                ? { durationSecs: Number.isInteger(uploadedDuration) && uploadedDuration >= 0 ? uploadedDuration : 0 }
+                : {}),
+            ...(useVideoAsAudio ? {
+                audioFileName: req.file.originalname,
+                audioPublicId: uploaded.videoPublicId,
+                audioUrl: uploaded.videoUrl,
+            } : {}),
         });
         if (previousPublicId && previousPublicId !== uploaded.videoPublicId && previousPublicId !== song.audioPublicId) {
             await cloudinaryService.deleteAsset(previousPublicId, 'video').catch((error) => {

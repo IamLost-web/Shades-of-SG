@@ -316,7 +316,7 @@ test('creator can upload a final MP4 video and publish without an AI generation 
 
     expect(response.status).toBe(200);
     expect(response.body.song).toMatchObject({
-        status: 'READY', videoPublicId: 'uploaded-videos/final', videoUrl: 'https://media.example/final.mp4',
+        durationSecs: 42, status: 'READY', videoPublicId: 'uploaded-videos/final', videoUrl: 'https://media.example/final.mp4',
     });
     expect(await GenerationJob.count({ where: { songId: song.id } })).toBe(0);
     const readiness = await request(app).get(`/api/songs/${song.id}/readiness`).set(auth(creatorToken));
@@ -324,6 +324,36 @@ test('creator can upload a final MP4 video and publish without an AI generation 
     expect((await request(app).put(`/api/songs/${song.id}/publish`).set(auth(creatorToken))).status).toBe(200);
     const publishedReadiness = await request(app).get(`/api/songs/${song.id}/readiness`).set(auth(creatorToken));
     expect(publishedReadiness.body).toMatchObject({ missing: [], ready: true, songStatus: 'PUBLISHED' });
+    upload.mockRestore();
+});
+
+test('a standalone MP4 upload supplies playable audio and duration metadata for beatmaps', async () => {
+    const song = await Song.create({ creatorId: creator.id, status: 'DRAFT', title: 'Standalone MP4' });
+    const upload = jest.spyOn(aiStorageService, 'uploadVideoStream').mockResolvedValue({
+        duration: 73,
+        videoPublicId: 'uploaded-videos/standalone',
+        videoUrl: 'https://media.example/standalone.mp4',
+    });
+
+    const response = await request(app)
+        .post(`/api/songs/${song.id}/video`).set(auth(creatorToken))
+        .attach('videoFile', Buffer.from('standalone video'), { contentType: 'video/mp4', filename: 'standalone.mp4' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.song).toMatchObject({
+        audioFileName: 'standalone.mp4',
+        audioPublicId: 'uploaded-videos/standalone',
+        audioUrl: 'https://media.example/standalone.mp4',
+        durationSecs: 73,
+        status: 'READY',
+        videoPublicId: 'uploaded-videos/standalone',
+        videoUrl: 'https://media.example/standalone.mp4',
+    });
+    const beatmap = await request(app)
+        .post(`/api/songs/${song.id}/beatmaps/generate`).set(auth(creatorToken))
+        .send({ difficulty: 'MEDIUM', mode: 'BASIC' });
+    expect(beatmap.status).toBe(201);
+    expect(beatmap.body.beatmap).toMatchObject({ difficulty: 'MEDIUM', durationMs: 73000 });
     upload.mockRestore();
 });
 

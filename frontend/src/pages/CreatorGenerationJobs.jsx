@@ -39,6 +39,7 @@ export default function CreatorGenerationJobs() {
   // Extraction States
   const [isExtractingAudio, setIsExtractingAudio] = useState(false)
   const [extractedAudioUrl, setExtractedAudioUrl] = useState('')
+  const [extractedAudioDuration, setExtractedAudioDuration] = useState(null)
   const [isExtractingLyrics, setIsExtractingLyrics] = useState(false)
 
   // --- INITIAL FETCH (ESLint Safe) ---
@@ -102,6 +103,7 @@ export default function CreatorGenerationJobs() {
       if (!response.ok) throw new Error(data.message || 'Failed to extract audio')
 
       setExtractedAudioUrl(data.audioUrl)
+      setExtractedAudioDuration(Number.isInteger(Number(data.duration)) ? Number(data.duration) : null)
       alert('MP3 Extracted and saved successfully!')
     } catch (err) {
       alert(err.message)
@@ -160,7 +162,9 @@ export default function CreatorGenerationJobs() {
           lyrics: formData.lyrics,
           theme: 'Standard',
           description: 'AI Generated', // Dummy data for constraints
-          ...(extractedAudioUrl ? { audioUrl: extractedAudioUrl } : { youtubeUrl: youtubeLink })
+          ...(extractedAudioUrl
+            ? { audioUrl: extractedAudioUrl, ...(extractedAudioDuration !== null ? { durationSecs: extractedAudioDuration } : {}) }
+            : { youtubeUrl: youtubeLink })
         })
       })
       const songContentType = songRes.headers.get("content-type");

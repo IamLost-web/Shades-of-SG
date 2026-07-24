@@ -16,6 +16,7 @@ const schema = Yup.object().shape({
 })
 
 
+
 export default function AccountSecurity() {
   // ✅ Hooks must be inside component
   const [oldPassword, setOldPassword] = useState('')
@@ -34,6 +35,11 @@ export default function AccountSecurity() {
 
   const { user, signIn } = useAuth()
   const [twoFA, setTwoFA] = useState(user?.enable2fa || false)
+
+  if (!user) {
+    // ✅ Show a loading state or redirect if no user //Please add an actual loading screen for both this and DataPrivacy because the pages keep jumping
+    return <p>Loading settings...</p>
+  }
 
   async function handleChangePassword(e) {
     e.preventDefault()

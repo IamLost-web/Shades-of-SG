@@ -26,6 +26,7 @@ import ResetPassword from './pages/ResetPassword'
 import RhythmHub from './pages/RhythmHub'
 import RhythmResults from './pages/RhythmResults'
 import Settings from './pages/Settings'
+import CreatorSettings from './pages/CreatorSettings'
 import ProfileSettings from './pages/ProfileSettings'
 import AccountSecurity from './pages/AccountSecurity'
 import DataPrivacy from './pages/DataPrivacy'
@@ -102,7 +103,7 @@ function App() {
             <Route element={<TotalPlays />} path="/creator/plays" />
             <Route element={<ReflectionModeration />} path="/creator/reflections" />
             <Route element={<Profile />} path="/creator/profile" />
-            <Route element={<Settings />} path="/creator/settings" />
+            <Route element={< CreatorSettings />} path="/creator/settings" />
             <Route path="/creator/settings/profile" element={<ProfileSettings />} />
             <Route path="/creator/settings/account-security" element={<AccountSecurity />} />
             <Route path="/creator/settings/data-privacy" element={<DataPrivacy />} />

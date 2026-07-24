@@ -11,11 +11,12 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const storedToken = localStorage.getItem("token");
-
+    console.log("AuthProvider - checking for user token");
     if (storedUser && storedToken) {
       try {
         setUser(JSON.parse(storedUser));
         setToken(storedToken);
+        console.log("AuthProvider - user token set");
       } catch {
         // If parsing fails, clear bad data
         localStorage.removeItem("user");

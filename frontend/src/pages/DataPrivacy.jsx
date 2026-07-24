@@ -7,7 +7,7 @@ export default function DataPrivacy() {
   const navigate = useNavigate()
 
   if (!user) {
-    return <p>Loading profile...</p>;
+    return <p>Loading settings...</p>;
   }
 
   async function handleDelete() {

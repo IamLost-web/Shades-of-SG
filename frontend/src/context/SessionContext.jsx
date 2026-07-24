@@ -17,7 +17,7 @@ function createGuestSession() {
 function loadGuestSession() {
   
   const existingSession = localStorage.getItem(SESSION_STORAGE_KEY)
-
+// get item user and token
   if (existingSession) {
     return JSON.parse(existingSession)
   }
